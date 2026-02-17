@@ -1,65 +1,259 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import {
+  AsciiFrame, AsciiSettings, SourceType, ArtStyle,
+  ColorMode, FxPreset, FontOption, LetterSet,
+} from "@/types";
+import { DEFAULT_SETTINGS } from "@/lib/constants";
+import { convertToAscii } from "@/lib/ascii";
+import { useFps } from "@/hooks/useFps";
+import AsciiCanvas from "@/components/AsciiCanvas";
+import ControlPanel from "@/components/ControlPanel";
+import BottomBar from "@/components/BottomBar";
+import DragContainer from "@/components/DragContainer";
 
 export default function Home() {
+  const [settings, setSettings] = useState<AsciiSettings>(DEFAULT_SETTINGS);
+  const [sourceType, setSourceType] = useState<SourceType>("image");
+  const [frame, setFrame] = useState<AsciiFrame>([]);
+  const [isWebcamActive, setIsWebcamActive] = useState(false);
+
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number>(0);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  const { fps, tick } = useFps();
+
+  const samplingCanvas = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    return document.createElement("canvas");
+  }, []);
+
+  // Animation loop for video/webcam
+  const startAnimationLoop = useCallback(
+    (source: HTMLVideoElement) => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const loop = () => {
+        if (source.readyState >= 2 && samplingCanvas) {
+          const newFrame = convertToAscii(source, settingsRef.current, samplingCanvas);
+          setFrame(newFrame);
+          tick();
+        }
+        rafRef.current = requestAnimationFrame(loop);
+      };
+      rafRef.current = requestAnimationFrame(loop);
+    },
+    [samplingCanvas, tick]
+  );
+
+  const stopAnimationLoop = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+  }, []);
+
+  // File upload
+  const handleFileSelect = useCallback(
+    (file: File) => {
+      stopAnimationLoop();
+
+      if (file.type.startsWith("image/")) {
+        setSourceType("image");
+        const url = URL.createObjectURL(file);
+        const img = new window.Image();
+        img.onload = () => {
+          imageRef.current = img;
+          videoRef.current = null;
+          const newFrame = convertToAscii(img, settingsRef.current, samplingCanvas!);
+          setFrame(newFrame);
+        };
+        img.src = url;
+      } else if (file.type.startsWith("video/")) {
+        setSourceType("video");
+        imageRef.current = null;
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(file);
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.onloadeddata = () => {
+          videoRef.current = video;
+          video.play();
+          startAnimationLoop(video);
+        };
+      }
+    },
+    [samplingCanvas, startAnimationLoop, stopAnimationLoop]
+  );
+
+  // Webcam
+  const handleWebcamStart = useCallback(async () => {
+    try {
+      stopAnimationLoop();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.playsInline = true;
+      video.muted = true;
+      video.onloadedmetadata = () => {
+        video.play();
+        imageRef.current = null;
+        videoRef.current = video;
+        setIsWebcamActive(true);
+        startAnimationLoop(video);
+      };
+    } catch {
+      // Browser handles permission prompt
+    }
+  }, [startAnimationLoop, stopAnimationLoop]);
+
+  const handleWebcamStop = useCallback(() => {
+    stopAnimationLoop();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    videoRef.current = null;
+    setIsWebcamActive(false);
+    setFrame([]);
+  }, [stopAnimationLoop]);
+
+  // Source type change
+  const handleSourceChange = useCallback(
+    (newType: SourceType) => {
+      if (newType !== "webcam" && isWebcamActive) {
+        handleWebcamStop();
+      }
+      if (newType !== sourceType) {
+        stopAnimationLoop();
+        setSourceType(newType);
+        if (newType !== "webcam") {
+          setFrame([]);
+          imageRef.current = null;
+          videoRef.current = null;
+        }
+      }
+    },
+    [sourceType, isWebcamActive, handleWebcamStop, stopAnimationLoop]
+  );
+
+  // Settings change
+  const handleSettingsChange = useCallback(
+    (newSettings: AsciiSettings) => {
+      setSettings(newSettings);
+      if (imageRef.current && samplingCanvas) {
+        const newFrame = convertToAscii(imageRef.current, newSettings, samplingCanvas);
+        setFrame(newFrame);
+      }
+    },
+    [samplingCanvas]
+  );
+
+  // Export
+  const handleExport = useCallback(() => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `ascii-${Date.now()}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, []);
+
+  // Randomize
+  const handleRandom = useCallback(() => {
+    const styles: ArtStyle[] = ["classic", "particles", "letters", "code", "retro", "terminal"];
+    const colors: ColorMode[] = ["grayscale", "color", "matrix", "amber"];
+    const fonts: FontOption[] = ["jetbrains", "vt323", "firacode", "courier"];
+    const fxs: FxPreset[] = ["none", "noise", "glitch", "crt", "beam", "matrix-rain"];
+    const letters: LetterSet[] = ["standard", "mixed", "alphabet", "numbers", "katakana"];
+
+    const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+    const rand = (min: number, max: number) => Math.round((min + Math.random() * (max - min)) * 100) / 100;
+
+    const newSettings: AsciiSettings = {
+      ...settingsRef.current,
+      artStyle: pick(styles),
+      colorMode: pick(colors),
+      font: pick(fonts),
+      fxPreset: pick(fxs),
+      letterSet: pick(letters),
+      ditherStrength: rand(0, 1),
+      brightness: rand(-0.3, 0.3),
+      contrast: rand(0.6, 1.8),
+      fontSize: Math.floor(6 + Math.random() * 14),
+      fxStrength: rand(0.2, 0.8),
+      matrixScale: rand(0.2, 0.8),
+    };
+    handleSettingsChange(newSettings);
+  }, [handleSettingsChange]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      stopAnimationLoop();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [stopAnimationLoop]);
+
+  const hasSource = frame.length > 0;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="h-screen w-screen flex flex-col bg-black overflow-hidden">
+      <div className="flex flex-1 min-h-0">
+        {/* Canvas area */}
+        <main className="flex-1 min-w-0 relative">
+          {hasSource ? (
+            <DragContainer>
+              <AsciiCanvas frame={frame} settings={settings} />
+            </DragContainer>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center empty-state">
+              <div className="text-center">
+                <p className="text-[11px] text-zinc-600 uppercase tracking-[0.2em]">
+                  No Source Loaded
+                </p>
+                <p className="text-[10px] text-zinc-700 mt-2">
+                  Upload an image or video, or start the webcam
+                </p>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Right sidebar */}
+        <aside className="w-[340px] border-l border-zinc-800/50 bg-black shrink-0 flex flex-col">
+          <ControlPanel
+            settings={settings}
+            onChange={handleSettingsChange}
+            sourceType={sourceType}
+            onSourceChange={handleSourceChange}
+            onFileSelect={handleFileSelect}
+            onWebcamStart={handleWebcamStart}
+            onWebcamStop={handleWebcamStop}
+            isWebcamActive={isWebcamActive}
+            onExport={handleExport}
+            onRandom={handleRandom}
+          />
+        </aside>
+      </div>
+
+      <BottomBar
+        fps={fps}
+        settings={settings}
+        onChange={handleSettingsChange}
+        hasSource={hasSource}
+      />
     </div>
   );
 }
