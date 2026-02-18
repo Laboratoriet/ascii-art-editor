@@ -4,6 +4,11 @@ A real-time ASCII art generator that converts images, videos, and live webcam fe
 
 Inspired by [Meng To's ASCII Dither System](https://x.com/MengTo).
 
+**Live Demo:** [ascii-art-editor.vercel.app](https://ascii-art-editor.vercel.app)
+**Repository:** [github.com/Laboratoriet/ascii-art-editor](https://github.com/Laboratoriet/ascii-art-editor)
+
+---
+
 ## Features
 
 - **Three input sources** -- drag-and-drop images, video files, or live webcam
@@ -20,42 +25,95 @@ Inspired by [Meng To's ASCII Dither System](https://x.com/MengTo).
 - **Export** -- download the current frame as PNG
 - **Randomize** -- generate random combinations of all settings
 
+---
+
 ## Getting Started
 
 ```bash
+git clone https://github.com/Laboratoriet/ascii-art-editor.git
+cd ascii-art-editor
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server (hot reload) |
+| `npm run build` | Production build |
+| `npm run start` | Serve production build |
+| `npm run lint` | Run ESLint |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19 |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4 |
+| Rendering | Canvas API (`ctx.fillText` per character) |
+| Icons | lucide-react |
+| Fonts | Inter, JetBrains Mono, VT323, Fira Code (via `next/font/google`) |
+| Hosting | Vercel |
+
+No external animation libraries. All effects (matrix rain, glitch, CRT scanlines, glow) are implemented with raw canvas operations.
+
+---
+
 ## Project Structure
 
 ```
 src/
   app/
-    layout.tsx              Root layout, font loading (Inter, JetBrains Mono, VT323, Fira Code)
-    page.tsx                Main orchestrator -- all state, source handling, animation loop
-    globals.css             Tailwind v4, dark theme, amber accent styling
+    layout.tsx              Root layout -- font loading, metadata
+    page.tsx                Main orchestrator -- state, source handling, animation loop
+    globals.css             Tailwind v4 config, dark theme, custom range/select/scrollbar styles
   components/
-    AsciiCanvas.tsx         Canvas renderer -- all FX, motion detection, hover, glow passes
+    AsciiCanvas.tsx         Canvas renderer -- FX, motion detection, hover, glow passes
     ControlPanel.tsx        Right sidebar -- art style, sliders, color mode, FX presets
     BottomBar.tsx           Status bar -- FPS counter, aspect ratio buttons, invert toggle
     DragContainer.tsx       Drag-to-pan wrapper using pointer events
   hooks/
     useDrag.ts              Pointer-based drag state (ref-based to avoid stale closures)
-    useFps.ts               Frame rate counter (1-second intervals)
+    useFps.ts               Frame rate counter (1-second sampling intervals)
   lib/
-    ascii.ts                Core conversion: downsample -> brightness map -> dither -> characters
+    ascii.ts                Core conversion: downsample -> brightness -> dither -> characters
     constants.ts            Character sets, font families, labels, defaults, Bayer matrix
     matrix-rain.ts          MatrixRain class -- falling columns, character mutations, trail queries
   types/
     index.ts                All TypeScript interfaces and union types
 ```
 
-## How It Works
+---
 
-### Conversion Pipeline
+## Architecture
+
+### Data Flow
+
+```
+Source (image/video/webcam)
+    |
+    v
+page.tsx (orchestrator)
+    |-- convertToAscii() returns AsciiFrame (2D grid of { char, r, g, b })
+    |
+    v
+AsciiCanvas.tsx (renderer)
+    |-- iterates grid, calls ctx.fillText per character
+    |-- applies FX layer (noise, glitch, beam, CRT, matrix rain)
+    |-- composites glow passes for matrix/amber modes
+    |
+    v
+<canvas> element (displayed in DragContainer)
+```
+
+### Conversion Pipeline (`ascii.ts`)
 
 1. **Source capture** -- the image, video frame, or webcam frame is the input
 2. **Aspect ratio crop** -- center-crop to the selected ratio before sampling
@@ -65,11 +123,11 @@ src/
 6. **Character mapping** -- map quantized brightness to characters from the active set (e.g., ` .:-=+*#%@`)
 7. **Color encoding** -- store RGB per cell. For matrix/amber modes, the R channel carries raw brightness so the renderer can extract true source luminance
 
-### Canvas Rendering
+### Canvas Rendering (`AsciiCanvas.tsx`)
 
-Each frame, `AsciiCanvas` iterates over the 2D grid and calls `ctx.fillText` per character with the computed color. On top of that:
+Each frame, the renderer iterates the 2D grid and calls `ctx.fillText` per character with the computed color. On top of that:
 
-- **Hover dispersal** -- mouse position is tracked in grid coordinates; characters within the hover radius are randomly replaced and brightened
+- **Hover dispersal** -- mouse position tracked in grid coordinates; characters within hover radius are randomly replaced and brightened
 - **FX layer** -- applied per-cell (noise, glitch, intervals) or as a post-pass (CRT scanlines, beam sweep)
 - **Glow passes** -- for matrix/amber modes, the canvas is composited onto itself with blur for a phosphor glow effect
 
@@ -88,9 +146,21 @@ motionEnergy = motionEnergy * 0.85 + |currentBrightness - previousBrightness| * 
 
 The temporal decay (0.85) means motion energy builds quickly but fades over ~10 frames. Moving areas respond with:
 
-- **Low motion** (0.05-0.3) -- brighter green glow
-- **Medium motion** (0.3-0.7) -- green-to-white gradient shift, katakana character swaps
-- **Peak motion** (0.7+) -- near-white flash, maximum brightness
+| Motion Level | Energy Range | Visual Response |
+|-------------|-------------|-----------------|
+| Low | 0.05 - 0.3 | Brighter green glow |
+| Medium | 0.3 - 0.7 | Green-to-white gradient shift, katakana character swaps |
+| Peak | 0.7+ | Near-white flash, maximum brightness |
+
+### Drag-to-Pan (`DragContainer.tsx` + `useDrag.ts`)
+
+Uses pointer events with `setPointerCapture` for smooth dragging. All state is ref-based to avoid stale closures in the pointer move handler. Double-click resets position with an eased transition.
+
+### FPS Counter (`useFps.ts`)
+
+Counts `requestAnimationFrame` ticks within 1-second intervals. Updated via the `tick()` callback called from the animation loop in `page.tsx`.
+
+---
 
 ## Settings Reference
 
@@ -113,27 +183,110 @@ The temporal decay (0.85) means motion energy builds quickly but fades over ~10 
 | Invert | toggle | Invert brightness mapping |
 | Aspect Ratio | 6 options | Original, 16:9, 4:3, 1:1, 3:4, 9:16 |
 
-## Tech Stack
+### Default Values
 
-- **Next.js 16** (App Router)
-- **React 19**
-- **TypeScript 5**
-- **Tailwind CSS 4**
-- **Canvas API** for rendering
-- **lucide-react** for icons
-
-## Scripts
-
-```bash
-npm run dev       # Start development server
-npm run build     # Production build
-npm run start     # Serve production build
-npm run lint      # Run ESLint
+```typescript
+{
+  artStyle: "classic",
+  font: "jetbrains",
+  letterSet: "standard",
+  ditherAlgorithm: "floyd-steinberg",
+  ditherStrength: 0.8,
+  characterSpacing: 1,
+  hoverStrength: 24,
+  brightness: 0,
+  contrast: 1,
+  fontSize: 10,
+  colorMode: "grayscale",
+  fxPreset: "none",
+  fxStrength: 0.5,
+  matrixScale: 0.5,
+  inverted: false,
+  aspectRatio: "original",
+}
 ```
 
-## Deploy
+---
 
-Deploy to [Vercel](https://vercel.com) -- push to GitHub and connect the repository. No additional configuration needed.
+## Character Sets
+
+| Art Style | Characters |
+|-----------|-----------|
+| Classic | ` .:-=+*#%@` |
+| Particles | ` .·:;oO0@` |
+| Letters | ` .coapAMWB` |
+| Code | ` ._-=+<>{}|` |
+| Retro | ` ░▒▓█` |
+| Terminal | ` ._-\|/\\>~#` |
+
+**Letter Set overrides** replace the art style characters:
+
+| Letter Set | Characters |
+|-----------|-----------|
+| Standard | Uses art style default |
+| Mixed | ` .aAbBcC...xXyYzZ` |
+| Alphabet | ` .ABCDEFGHIJKLMNOPQRSTUVWXYZ` |
+| Numbers | ` .0123456789` |
+| Katakana | ` .ｦｱｲｳｴｵｶｷｸｹｺ...ﾜﾝ` |
+
+---
+
+## FX Presets
+
+| Preset | Type | How It Works |
+|--------|------|-------------|
+| Noise Field | Per-cell | Random character/brightness replacement at `fxStrength * 10%` probability |
+| Intervals | Per-cell | Horizontal bands where alternating rows are blanked based on band size |
+| Beam Sweep | Per-cell | Horizontal bright line sweeps vertically, +-4 rows glow with distance falloff |
+| Glitch | Per-row | Horizontal offset on random rows using seeded pseudo-random hash |
+| CRT Monitor | Post-pass | 3px scanlines + radial vignette gradient overlay |
+| Matrix Rain | Overlay | Full matrix rain system with motion detection (see Architecture section) |
+
+---
+
+## Styling
+
+The UI uses a dark theme with amber accents. Key design decisions:
+
+- **Black background** (`#000000`) everywhere -- canvas, sidebar, bottom bar
+- **Amber accent** (`#fbbf24`) for active states, selected chips, export button
+- **Zinc scale** for text hierarchy (zinc-300 to zinc-700)
+- **Custom range inputs** -- 2px track, 12px circular thumb, amber on active
+- **Custom scrollbar** -- 3px width, zinc-800 thumb, transparent track
+- **Custom select dropdown** -- SVG chevron background image, no native appearance
+- **Typography** -- Inter for UI text, monospace fonts for the canvas
+
+---
+
+## Deployment
+
+The project is deployed on Vercel with automatic GitHub integration:
+
+- **Push to `main`** triggers a production deployment
+- **Pull requests** get preview deployments
+- **No environment variables** needed -- everything runs client-side
+
+To deploy your own fork:
+
+1. Fork the repository
+2. Import into [Vercel](https://vercel.com)
+3. Deploy -- no configuration needed
+
+---
+
+## Browser Support
+
+Requires a modern browser with:
+
+- Canvas API (`CanvasRenderingContext2D.fillText`)
+- `requestAnimationFrame`
+- `getUserMedia` (for webcam)
+- Pointer Events (for drag-to-pan)
+- CSS `backdrop-filter` support (for glow effects)
+
+Tested in Chrome, Firefox, Safari, and Edge.
+
+---
 
 ## License
 
