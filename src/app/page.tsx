@@ -266,6 +266,23 @@ export default function Home() {
     wasFullscreenRef.current = isFullscreen;
   }, [isFullscreen]);
 
+  // Keyboard shortcuts: R = randomize, F = fullscreen
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        handleRandom();
+      }
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        handleFullscreenToggle();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleRandom, handleFullscreenToggle]);
+
   const hasSource = frame.length > 0;
 
   // Shared props for ControlContent (used by both sidebar and drawer)

@@ -30,8 +30,11 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Use logical dimensions (CSS width/height) not canvas.width which includes DPR
+    const logicalW = parseFloat(canvas.style.width) || rect.width;
+    const logicalH = parseFloat(canvas.style.height) || rect.height;
+    const scaleX = logicalW / rect.width;
+    const scaleY = logicalH / rect.height;
     mousePos.current = {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY,
@@ -54,17 +57,23 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
     const cols = frame[0].length;
     const rows = frame.length;
 
+    const dpr = window.devicePixelRatio || 1;
     const w = Math.ceil(cols * charWidth);
     const h = Math.ceil(rows * charHeight);
+    const scaledW = Math.ceil(w * dpr);
+    const scaledH = Math.ceil(h * dpr);
 
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
+    if (canvas.width !== scaledW || canvas.height !== scaledH) {
+      canvas.width = scaledW;
+      canvas.height = scaledH;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
     }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, w, h);
     ctx.font = `${fontSize}px ${fontFamily}`;
@@ -299,8 +308,9 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
       ctx.fillRect(0, 0, w, h);
     }
 
-    // Glow for matrix/amber modes
+    // Glow for matrix/amber modes (reset transform for self-composite)
     if ((colorMode === "matrix" || colorMode === "amber") && !isMatrixRain) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = "lighter";
       ctx.filter = "blur(2px)";
       ctx.globalAlpha = 0.12;
@@ -308,10 +318,12 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
       ctx.globalCompositeOperation = "source-over";
       ctx.filter = "none";
       ctx.globalAlpha = 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    // Extra glow pass for matrix rain
+    // Extra glow pass for matrix rain (reset transform for self-composite)
     if (isMatrixRain) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = "lighter";
       ctx.filter = "blur(3px)";
       ctx.globalAlpha = 0.1;
@@ -322,6 +334,7 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
       ctx.globalCompositeOperation = "source-over";
       ctx.filter = "none";
       ctx.globalAlpha = 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
   }, [frame, settings]);
 
