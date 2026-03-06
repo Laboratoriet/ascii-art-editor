@@ -44,6 +44,13 @@ export const metadata: Metadata = {
     description: "Algorithmic ASCII topography — image, video, and live webcam",
     images: ["/og-badge.png"],
   },
+  icons: {
+    icon: [
+      { url: "/favicon/favicon.ico", sizes: "any" },
+      { url: "/favicon/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/favicon/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
