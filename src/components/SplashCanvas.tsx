@@ -55,7 +55,10 @@ export default function SplashCanvas() {
       const offCtx = offscreen.getContext("2d")!;
 
       const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
-      const targetW = Math.floor(maskW * 0.45);
+      // Wider on portrait/mobile screens so the text is legible
+      const isPortrait = cssH > cssW;
+      const logoScale = isPortrait ? 0.85 : 0.45;
+      const targetW = Math.floor(maskW * logoScale);
       const targetH = Math.floor(targetW / logoAspect);
       const ox = Math.floor((maskW - targetW) / 2);
       const oy = Math.floor((maskH - targetH) / 2);

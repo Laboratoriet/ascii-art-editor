@@ -523,7 +523,7 @@ export default function Home() {
             href="https://www.alkemist.no"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 text-[9px] uppercase tracking-[0.2em] text-zinc-600 hover:text-zinc-400 transition-colors"
+            className="mt-3 text-[9px] uppercase tracking-[0.2em] text-zinc-600 hover:text-zinc-400 transition-colors"
           >
             ASCII <span className="font-bold text-zinc-500">ALKEMIST</span>
           </a>
