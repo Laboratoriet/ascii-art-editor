@@ -9,13 +9,15 @@ interface AsciiCanvasProps {
   frame: AsciiFrame;
   settings: AsciiSettings;
   onMousePos?: (pos: { x: number; y: number } | null) => void;
+  /** When true, matrix colorMode only tints green — no rain overlay */
+  disableMatrixRain?: boolean;
 }
 
 // Shared FX state that persists across renders
 let glitchSeed = 0;
 let beamY = 0;
 
-export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvasProps) {
+export default function AsciiCanvas({ frame, settings, onMousePos, disableMatrixRain }: AsciiCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const matrixRain = useRef<MatrixRain>(new MatrixRain());
   const mousePos = useRef<{ x: number; y: number } | null>(null);
@@ -83,8 +85,9 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
     glitchSeed = (glitchSeed + 1) % 1000;
     beamY = (beamY + 2) % (rows + 20);
 
-    // Matrix rain
-    const isMatrixRain = fxPreset === "matrix-rain" || colorMode === "matrix";
+    // Matrix rain: explicit FX preset always works, but colorMode "matrix"
+    // auto-trigger is suppressed in logo demo so style changes are visible
+    const isMatrixRain = fxPreset === "matrix-rain" || (!disableMatrixRain && colorMode === "matrix");
     if (isMatrixRain) {
       matrixRain.current.resize(cols, rows);
       matrixRain.current.tick(matrixScale);

@@ -449,7 +449,7 @@ export default function Home() {
             <SplashCanvas />
           ) : hasSource ? (
             <DragContainer zoom={displayZoom}>
-              <AsciiCanvas frame={frame} settings={settings} />
+              <AsciiCanvas frame={frame} settings={settings} disableMatrixRain={!hasRealSource.current} />
             </DragContainer>
           ) : null}
 
