@@ -74,7 +74,6 @@ export default function ControlContent({
       <div className="flex items-center justify-between">
         <div className="text-right ml-auto shrink-0">
           <h2 className="text-2xl tracking-tight leading-none">
-            <span className="text-white font-light">ASCII</span>{" "}
             <a
               href="https://www.alkemist.no"
               target="_blank"
@@ -82,7 +81,8 @@ export default function ControlContent({
               className="font-bold text-white hover:text-amber-400 transition-colors"
             >
               ALKEMIST
-            </a>
+            </a>{" "}
+            <span className="text-white font-light">ASCII</span>
           </h2>
           <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em] mt-0.5">
             Dither System

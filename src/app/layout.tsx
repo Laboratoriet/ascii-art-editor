@@ -30,8 +30,20 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "ASCII Dither System",
+  metadataBase: new URL("https://ascii.alkemist.no"),
+  title: "ALKEMIST ASCII Dither System",
   description: "Algorithmic ASCII topography — image, video, and live webcam",
+  openGraph: {
+    title: "ALKEMIST ASCII Dither System",
+    description: "Algorithmic ASCII topography — image, video, and live webcam",
+    images: [{ url: "/og-badge.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ALKEMIST ASCII Dither System",
+    description: "Algorithmic ASCII topography — image, video, and live webcam",
+    images: ["/og-badge.png"],
+  },
 };
 
 export default function RootLayout({

@@ -552,7 +552,7 @@ export default function Home() {
             rel="noopener noreferrer"
             className="mt-3 text-[9px] uppercase tracking-[0.2em] text-zinc-600 hover:text-zinc-400 transition-colors"
           >
-            ASCII <span className="font-bold text-zinc-500">ALKEMIST</span>
+            <span className="font-bold text-zinc-500">ALKEMIST</span> ASCII Dither System
           </a>
 
           {/* Hidden file input for mobile upload */}
