@@ -188,65 +188,54 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
             ? motionMap.current[y * cols + x]
             : 0;
 
-          // Apply squared contrast so bright/dark separation is much stronger
-          const boostedLum = sourceLum * sourceLum;
+          // Mild contrast boost — keeps mid-tones visible (not squared)
+          const baseLum = Math.min(1, sourceLum * 1.3);
 
-          // Base green: image is clearly visible
+          // Base green: source silhouette always clearly visible
           cr = 0;
-          cg = Math.round(boostedLum * 255);
-          cb = Math.round(boostedLum * 25);
+          cg = Math.round(baseLum * 220);
+          cb = Math.round(baseLum * 20);
 
-          // Motion boost: moving areas glow brighter, shifting green → white
+          // Motion intensifier: adds brightness and shifts toward white
           if (motionEnergy > 0.05) {
-            const mBoost = motionEnergy * motionEnergy; // squared for sharper edges
-
-            // Low motion: brighter green. High motion: shifts toward white.
-            // whiteness ramps from 0 at motionEnergy=0.3 to 1 at motionEnergy=1.0
+            const mBoost = motionEnergy;
             const whiteness = Math.max(0, (motionEnergy - 0.3) / 0.7);
-            const w2 = whiteness * whiteness; // smooth ramp
 
-            // Green channel always boosted
-            cg = Math.min(255, cg + Math.round(mBoost * 220));
-            // R and B channels ramp toward white at high motion
-            cr = Math.min(255, cr + Math.round(mBoost * 80 + w2 * 175));
-            cb = Math.min(255, cb + Math.round(mBoost * 40 + w2 * 140));
+            cg = Math.min(255, cg + Math.round(mBoost * 120));
+            cr = Math.min(255, cr + Math.round(whiteness * whiteness * 150));
+            cb = Math.min(255, cb + Math.round(whiteness * whiteness * 100));
 
             // High motion: swap to katakana for visual disruption
-            if (motionEnergy > 0.3 && Math.random() < motionEnergy * 0.6) {
+            if (motionEnergy > 0.3 && Math.random() < motionEnergy * 0.5) {
               char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
             }
 
-            // Peak motion: near-white flash (like rain head but for movement)
+            // Peak motion: near-white flash
             if (motionEnergy > 0.7) {
-              const flash = (motionEnergy - 0.7) / 0.3; // 0→1
+              const flash = (motionEnergy - 0.7) / 0.3;
               cr = Math.min(255, cr + Math.round(flash * 80));
               cg = 255;
               cb = Math.min(255, cb + Math.round(flash * 60));
             }
           }
 
-          // Very dark areas: suppress character entirely (unless motion)
-          if (sourceLum < 0.06 && motionEnergy < 0.1) {
+          // Only suppress truly black areas
+          if (sourceLum < 0.02) {
             char = " ";
           }
 
-          // Rain overlay: only rain columns replace characters with katakana
+          // Rain overlay
           const rain = matrixRain.current.getRain(x, y);
           if (rain) {
             char = rain.char;
             if (rain.intensity > 0.9) {
-              // Head: bright white-green flash
-              cr = 220;
-              cg = 255;
-              cb = 220;
+              cr = 220; cg = 255; cb = 220;
             } else {
-              // Trail: add green brightness on top of source base
               const boost = rain.intensity;
-              // In bright areas or moving areas, rain is more visible
-              const srcBoost = 0.3 + sourceLum * 0.7 + motionEnergy * 0.5;
-              cg = Math.min(255, cg + Math.round(boost * srcBoost * 200));
-              cr = Math.min(80, cr + Math.round(boost * srcBoost * 40));
-              cb = Math.min(80, cb + Math.round(boost * srcBoost * 40));
+              const srcBoost = 0.3 + sourceLum * 0.7 + motionEnergy * 0.3;
+              cg = Math.min(255, cg + Math.round(boost * srcBoost * 180));
+              cr = Math.min(80, cr + Math.round(boost * srcBoost * 30));
+              cb = Math.min(80, cb + Math.round(boost * srcBoost * 30));
             }
           }
         }
