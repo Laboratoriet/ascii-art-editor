@@ -73,10 +73,17 @@ export default function ControlContent({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="text-right ml-auto shrink-0">
-          <h2 className="text-2xl font-bold text-white tracking-tight leading-none">ASCII</h2>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em] mt-0.5">
-            Dither System
-          </p>
+          <h2 className="text-2xl tracking-tight leading-none">
+            <span className="text-white font-light">ASCII</span>{" "}
+            <a
+              href="https://www.alkemist.no"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-white hover:text-amber-400 transition-colors"
+            >
+              ALKEMIST
+            </a>
+          </h2>
         </div>
       </div>
 

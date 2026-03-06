@@ -69,7 +69,7 @@ export default function BottomBar({ fps, settings, onChange, hasSource }: Bottom
         rel="noopener noreferrer"
         className="text-zinc-600 hover:text-zinc-400 transition-colors"
       >
-        ASCII DITHER SYSTEM <span className="text-zinc-700">by</span> Alkemist
+        ASCII <span className="text-zinc-400 font-bold">ALKEMIST</span>
       </a>
     </div>
   );
