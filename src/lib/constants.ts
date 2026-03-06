@@ -93,7 +93,7 @@ export const ASPECT_RATIO_VALUES: Record<AspectRatio, number | null> = {
 export const DEFAULT_SETTINGS: AsciiSettings = {
   artStyle: "classic",
   font: "jetbrains",
-  letterSet: "standard",
+  letterSet: "katakana",
   ditherAlgorithm: "floyd-steinberg",
   ditherStrength: 0.8,
   characterSpacing: 1,
@@ -101,7 +101,7 @@ export const DEFAULT_SETTINGS: AsciiSettings = {
   brightness: 0,
   contrast: 1,
   fontSize: 10,
-  colorMode: "grayscale",
+  colorMode: "matrix",
   fxPreset: "none",
   fxStrength: 0.5,
   matrixScale: 0.5,

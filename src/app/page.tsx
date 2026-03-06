@@ -20,7 +20,7 @@ import DragContainer from "@/components/DragContainer";
 import SplashCanvas from "@/components/SplashCanvas";
 import {
   Maximize2, Minimize2, Menu, Camera, CameraOff,
-  Dice5, Upload, Image as ImageIcon,
+  Shuffle, Upload, Image as ImageIcon,
 } from "lucide-react";
 
 export default function Home() {
@@ -496,7 +496,7 @@ export default function Home() {
               className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-zinc-400 active:text-amber-400 active:bg-white/20 transition-all"
               aria-label="Randomize"
             >
-              <Dice5 size={20} />
+              <Shuffle size={20} />
             </button>
 
             {/* Export */}
