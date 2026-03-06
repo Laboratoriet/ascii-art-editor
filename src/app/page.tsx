@@ -128,8 +128,8 @@ export default function Home() {
     [samplingCanvas, startAnimationLoop, stopAnimationLoop]
   );
 
-  // Webcam — accepts optional deviceId
-  const handleWebcamStart = useCallback(async (deviceId?: string) => {
+  // Webcam — accepts optional deviceId and resolution
+  const handleWebcamStart = useCallback(async (deviceId?: string, hd?: boolean) => {
     try {
       stopAnimationLoop();
       // Stop existing stream
@@ -138,9 +138,11 @@ export default function Home() {
         streamRef.current = null;
       }
 
+      const idealW = hd ? 1920 : 1280;
+      const idealH = hd ? 1080 : 720;
       const videoConstraints: MediaTrackConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
+        ? { deviceId: { exact: deviceId }, width: { ideal: idealW }, height: { ideal: idealH } }
+        : { facingMode: "user", width: { ideal: idealW }, height: { ideal: idealH } };
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: videoConstraints,
@@ -316,7 +318,13 @@ export default function Home() {
       setDisplayZoom(prevZoomRef.current);
     }
     toggleFullscreen();
-  }, [isFullscreen, displayZoom, frame, settings.fontSize, toggleFullscreen]);
+
+    // Restart webcam at higher/lower resolution
+    if (isWebcamActive) {
+      const enteringFullscreen = !isFullscreen;
+      handleWebcamStart(selectedDeviceId || undefined, enteringFullscreen);
+    }
+  }, [isFullscreen, displayZoom, frame, settings.fontSize, toggleFullscreen, isWebcamActive, handleWebcamStart, selectedDeviceId]);
 
   // Restore zoom when native fullscreen exit occurs (Escape key)
   const wasFullscreenRef = useRef(false);
