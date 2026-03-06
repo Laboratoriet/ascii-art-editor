@@ -14,7 +14,7 @@ interface BottomBarProps {
 export default function BottomBar({ fps, settings, onChange, hasSource }: BottomBarProps) {
   return (
     <div
-      className="flex items-center justify-between px-4 h-9 border-t border-zinc-800 bg-black/50 shrink-0 text-[10px] uppercase tracking-wider"
+      className="hidden md:flex items-center justify-between px-4 h-9 border-t border-zinc-800 bg-black/50 shrink-0 text-xs uppercase tracking-wider"
       data-no-drag
     >
       {/* Left: FPS */}

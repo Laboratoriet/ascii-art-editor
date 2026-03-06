@@ -24,6 +24,10 @@ Inspired by [Meng To's ASCII Dither System](https://x.com/MengTo).
 - **Drag to pan** -- click and drag the canvas, double-click to reset
 - **Export** -- download the current frame as PNG
 - **Randomize** -- generate random combinations of all settings
+- **Camera device selection** -- choose between multiple cameras, persisted to localStorage
+- **Fullscreen mode** -- hide sidebar for distraction-free viewing, Escape to exit
+- **Collapsible sections** -- accordion UI with smooth open/close transitions
+- **Mobile responsive** -- slide-out drawer, touch-friendly controls, safe area support (iOS)
 
 ---
 
@@ -71,17 +75,31 @@ No external animation libraries. All effects (matrix rain, glitch, CRT scanlines
 ```
 src/
   app/
-    layout.tsx              Root layout -- font loading, metadata
-    page.tsx                Main orchestrator -- state, source handling, animation loop
-    globals.css             Tailwind v4 config, dark theme, custom range/select/scrollbar styles
+    layout.tsx              Root layout -- font loading, metadata, viewport config
+    page.tsx                Main orchestrator -- state, source handling, animation loop, responsive layout
+    globals.css             Tailwind v4 config, dark theme, safe area utils, touch-friendly styles
   components/
     AsciiCanvas.tsx         Canvas renderer -- FX, motion detection, hover, glow passes
-    ControlPanel.tsx        Right sidebar -- art style, sliders, color mode, FX presets
-    BottomBar.tsx           Status bar -- FPS counter, aspect ratio buttons, invert toggle
+    ControlPanel.tsx        Desktop sidebar shell wrapping ControlContent
+    ControlContent.tsx      Shared section layout -- 5 accordion sections, camera UI
+    MobileDrawer.tsx        Slide-out drawer for mobile -- backdrop, scroll lock, safe areas
+    BottomBar.tsx           Status bar -- FPS counter, aspect ratio buttons (hidden on mobile)
     DragContainer.tsx       Drag-to-pan wrapper using pointer events
+    ui/
+      SectionBox.tsx        Collapsible section wrapper with chevron animation
+      ChipButton.tsx        Style/FX/color selection chips
+      TabButton.tsx         Source type tabs
+      Dropdown.tsx          Generic <select> wrapper
+      SliderField.tsx       Label + value + range input
+      CircleButton.tsx      Bottom action buttons
+      InfoRow.tsx           Label-value info pairs
+      SectionLabel.tsx      Section heading text
   hooks/
     useDrag.ts              Pointer-based drag state (ref-based to avoid stale closures)
     useFps.ts               Frame rate counter (1-second sampling intervals)
+    useMediaQuery.ts        matchMedia listener for responsive breakpoints
+    useMediaDevices.ts      Video device enumeration + localStorage persistence
+    useFullscreen.ts        Sidebar hide/show toggle with Escape key support
   lib/
     ascii.ts                Core conversion: downsample -> brightness -> dither -> characters
     constants.ts            Character sets, font families, labels, defaults, Bayer matrix

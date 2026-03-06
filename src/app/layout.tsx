@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, VT323, Fira_Code } from "next/font/google";
 import "./globals.css";
 
@@ -22,6 +22,12 @@ const firaCode = Fira_Code({
   variable: "--font-fira-code",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "ASCII Dither System",

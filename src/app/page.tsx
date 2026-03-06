@@ -8,16 +8,22 @@ import {
 import { DEFAULT_SETTINGS } from "@/lib/constants";
 import { convertToAscii } from "@/lib/ascii";
 import { useFps } from "@/hooks/useFps";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useMediaDevices } from "@/hooks/useMediaDevices";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import AsciiCanvas from "@/components/AsciiCanvas";
 import ControlPanel from "@/components/ControlPanel";
 import BottomBar from "@/components/BottomBar";
+import MobileDrawer from "@/components/MobileDrawer";
 import DragContainer from "@/components/DragContainer";
+import { Maximize2, Minimize2, Menu } from "lucide-react";
 
 export default function Home() {
   const [settings, setSettings] = useState<AsciiSettings>(DEFAULT_SETTINGS);
   const [sourceType, setSourceType] = useState<SourceType>("image");
   const [frame, setFrame] = useState<AsciiFrame>([]);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -27,6 +33,9 @@ export default function Home() {
   settingsRef.current = settings;
 
   const { fps, tick } = useFps();
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const { devices, selectedDeviceId, selectDevice, enumerate } = useMediaDevices();
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   const samplingCanvas = useMemo(() => {
     if (typeof document === "undefined") return null;
@@ -91,15 +100,29 @@ export default function Home() {
     [samplingCanvas, startAnimationLoop, stopAnimationLoop]
   );
 
-  // Webcam
-  const handleWebcamStart = useCallback(async () => {
+  // Webcam — accepts optional deviceId
+  const handleWebcamStart = useCallback(async (deviceId?: string) => {
     try {
       stopAnimationLoop();
+      // Stop existing stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+
+      const videoConstraints: MediaTrackConstraints = deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+        : { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } };
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        video: videoConstraints,
         audio: false,
       });
       streamRef.current = stream;
+
+      // After first getUserMedia succeeds, labels become available
+      enumerate();
+
       const video = document.createElement("video");
       video.srcObject = stream;
       video.playsInline = true;
@@ -114,7 +137,7 @@ export default function Home() {
     } catch {
       // Browser handles permission prompt
     }
-  }, [startAnimationLoop, stopAnimationLoop]);
+  }, [startAnimationLoop, stopAnimationLoop, enumerate]);
 
   const handleWebcamStop = useCallback(() => {
     stopAnimationLoop();
@@ -208,8 +231,25 @@ export default function Home() {
 
   const hasSource = frame.length > 0;
 
+  // Shared props for ControlContent (used by both sidebar and drawer)
+  const controlProps = {
+    settings,
+    onChange: handleSettingsChange,
+    sourceType,
+    onSourceChange: handleSourceChange,
+    onFileSelect: handleFileSelect,
+    onWebcamStart: handleWebcamStart,
+    onWebcamStop: handleWebcamStop,
+    isWebcamActive,
+    onExport: handleExport,
+    onRandom: handleRandom,
+    devices,
+    selectedDeviceId,
+    onDeviceSelect: selectDevice,
+  };
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-black overflow-hidden">
+    <div className="h-screen-safe w-screen flex flex-col bg-black overflow-hidden">
       <div className="flex flex-1 min-h-0">
         {/* Canvas area */}
         <main className="flex-1 min-w-0 relative">
@@ -220,40 +260,66 @@ export default function Home() {
           ) : (
             <div className="w-full h-full flex items-center justify-center empty-state">
               <div className="text-center">
-                <p className="text-[11px] text-zinc-600 uppercase tracking-[0.2em]">
+                <p className="text-xs text-zinc-600 uppercase tracking-[0.15em]">
                   No Source Loaded
                 </p>
-                <p className="text-[10px] text-zinc-700 mt-2">
+                <p className="text-[11px] text-zinc-700 mt-2">
                   Upload an image or video, or start the webcam
                 </p>
               </div>
             </div>
           )}
+
+          {/* Fullscreen toggle — desktop only */}
+          {!isMobile && (
+            <button
+              onClick={toggleFullscreen}
+              className="absolute top-3 right-3 z-10 p-2 text-zinc-600 hover:text-zinc-300 bg-black/40 rounded transition-colors"
+            >
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+          )}
+
+          {/* Hamburger menu — mobile only */}
+          {isMobile && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="absolute top-3 right-3 z-10 p-2.5 text-zinc-400 hover:text-zinc-200 bg-black/60 rounded-lg transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          )}
         </main>
 
-        {/* Right sidebar */}
-        <aside className="w-[340px] border-l border-zinc-800/50 bg-black shrink-0 flex flex-col">
-          <ControlPanel
-            settings={settings}
-            onChange={handleSettingsChange}
-            sourceType={sourceType}
-            onSourceChange={handleSourceChange}
-            onFileSelect={handleFileSelect}
-            onWebcamStart={handleWebcamStart}
-            onWebcamStop={handleWebcamStop}
-            isWebcamActive={isWebcamActive}
-            onExport={handleExport}
-            onRandom={handleRandom}
-          />
+        {/* Desktop sidebar — hidden on mobile, slides on fullscreen */}
+        <aside
+          className={`hidden md:flex border-l border-zinc-800/50 bg-black shrink-0 flex-col overflow-hidden transition-[width] duration-300 ${
+            isFullscreen ? "w-0" : "w-[340px]"
+          }`}
+        >
+          <ControlPanel {...controlProps} />
         </aside>
       </div>
 
-      <BottomBar
-        fps={fps}
-        settings={settings}
-        onChange={handleSettingsChange}
-        hasSource={hasSource}
-      />
+      {/* Bottom bar — hidden on mobile and fullscreen */}
+      {!isFullscreen && (
+        <BottomBar
+          fps={fps}
+          settings={settings}
+          onChange={handleSettingsChange}
+          hasSource={hasSource}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      {isMobile && (
+        <MobileDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          {...controlProps}
+          isMobile
+        />
+      )}
     </div>
   );
 }
