@@ -139,8 +139,8 @@ export default function Home() {
       }
 
       const videoConstraints: MediaTrackConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
-        : { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } };
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: videoConstraints,
