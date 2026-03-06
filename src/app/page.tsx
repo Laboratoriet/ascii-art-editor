@@ -237,16 +237,16 @@ export default function Home() {
     if (!isFullscreen) {
       // Entering fullscreen — save current zoom, compute auto-fit
       prevZoomRef.current = displayZoom;
-      if (frame.length > 0 && mainRef.current) {
+      if (frame.length > 0) {
         const cols = frame[0].length;
         const rows = frame.length;
         const charW = settings.fontSize * 0.6;
         const charH = settings.fontSize * 1.1;
         const canvasW = cols * charW;
         const canvasH = rows * charH;
-        // After sidebar closes, main will be roughly window width
-        const availW = window.innerWidth;
-        const availH = window.innerHeight - 36; // minus bottom bar area
+        // In real fullscreen, the entire screen is available
+        const availW = screen.width;
+        const availH = screen.height;
         const fitZoom = Math.min(availW / canvasW, availH / canvasH, 4);
         setDisplayZoom(Math.round(fitZoom * 10) / 10);
       }
@@ -256,6 +256,15 @@ export default function Home() {
     }
     toggleFullscreen();
   }, [isFullscreen, displayZoom, frame, settings.fontSize, toggleFullscreen]);
+
+  // Restore zoom when native fullscreen exit occurs (Escape key)
+  const wasFullscreenRef = useRef(false);
+  useEffect(() => {
+    if (wasFullscreenRef.current && !isFullscreen) {
+      setDisplayZoom(prevZoomRef.current);
+    }
+    wasFullscreenRef.current = isFullscreen;
+  }, [isFullscreen]);
 
   const hasSource = frame.length > 0;
 
