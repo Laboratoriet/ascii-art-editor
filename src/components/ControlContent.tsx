@@ -84,6 +84,9 @@ export default function ControlContent({
               ALKEMIST
             </a>
           </h2>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em] mt-0.5">
+            Dither System
+          </p>
         </div>
       </div>
 
