@@ -112,6 +112,66 @@ export const DEFAULT_SETTINGS: AsciiSettings = {
   mirrored: false,
 };
 
+// Curated presets per art style — applied when switching styles in logo demo mode
+// Each style gets optimized settings so the change is visually obvious
+export const STYLE_PRESETS: Record<ArtStyle, Partial<AsciiSettings>> = {
+  classic: {
+    letterSet: "standard",
+    colorMode: "grayscale",
+    fxPreset: "none",
+    brightness: 0.1,
+    contrast: 1.3,
+    ditherAlgorithm: "floyd-steinberg",
+    ditherStrength: 0.8,
+  },
+  particles: {
+    letterSet: "standard",
+    colorMode: "grayscale",
+    fxPreset: "noise",
+    fxStrength: 0.3,
+    brightness: 0.15,
+    contrast: 1.4,
+    ditherAlgorithm: "none",
+  },
+  letters: {
+    letterSet: "mixed",
+    colorMode: "color",
+    fxPreset: "none",
+    brightness: 0.1,
+    contrast: 1.2,
+    ditherAlgorithm: "floyd-steinberg",
+    ditherStrength: 0.6,
+  },
+  code: {
+    letterSet: "standard",
+    colorMode: "matrix",
+    fxPreset: "none",
+    brightness: 0.05,
+    contrast: 1.2,
+    ditherAlgorithm: "floyd-steinberg",
+    ditherStrength: 0.7,
+  },
+  retro: {
+    letterSet: "standard",
+    colorMode: "amber",
+    fxPreset: "crt",
+    fxStrength: 0.6,
+    brightness: 0.15,
+    contrast: 1.5,
+    ditherAlgorithm: "bayer",
+    ditherStrength: 0.9,
+  },
+  terminal: {
+    letterSet: "standard",
+    colorMode: "matrix",
+    fxPreset: "glitch",
+    fxStrength: 0.4,
+    brightness: 0.1,
+    contrast: 1.3,
+    ditherAlgorithm: "none",
+  },
+};
+
 // Matrix characters: half-width katakana + digits + some latin
 export const MATRIX_CHARS = "ｦｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾅﾆﾇﾈﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾙﾚﾛﾜﾝ0123456789ABCDEFZ:・.=*+-<>¦╌";
 

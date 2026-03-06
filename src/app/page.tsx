@@ -5,7 +5,7 @@ import {
   AsciiFrame, AsciiSettings, SourceType, ArtStyle,
   ColorMode, FxPreset, FontOption, LetterSet,
 } from "@/types";
-import { DEFAULT_SETTINGS } from "@/lib/constants";
+import { DEFAULT_SETTINGS, STYLE_PRESETS } from "@/lib/constants";
 import { convertToAscii } from "@/lib/ascii";
 import { useFps } from "@/hooks/useFps";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -258,13 +258,21 @@ export default function Home() {
   // Settings change
   const handleSettingsChange = useCallback(
     (newSettings: AsciiSettings) => {
-      const depthJustEnabled = newSettings.depthEnabled && !settingsRef.current.depthEnabled;
-      const depthJustDisabled = !newSettings.depthEnabled && settingsRef.current.depthEnabled;
+      // In logo demo mode: if art style changed, apply curated preset
+      // so each style looks visually distinct
+      let effective = newSettings;
+      if (!hasRealSource.current && newSettings.artStyle !== settingsRef.current.artStyle) {
+        const preset = STYLE_PRESETS[newSettings.artStyle];
+        effective = { ...newSettings, ...preset, artStyle: newSettings.artStyle };
+      }
+
+      const depthJustEnabled = effective.depthEnabled && !settingsRef.current.depthEnabled;
+      const depthJustDisabled = !effective.depthEnabled && settingsRef.current.depthEnabled;
 
       // Dismiss splash on first settings interaction — switch to logo-fed AsciiCanvas
       setSplashActive(false);
 
-      setSettings(newSettings);
+      setSettings(effective);
 
       // Init model when depth is first enabled
       if (depthJustEnabled) {
@@ -282,12 +290,12 @@ export default function Home() {
       }
 
       if (imageRef.current && samplingCanvas) {
-        const dm = newSettings.depthEnabled ? depthMapRef.current : null;
-        const newFrame = convertToAscii(imageRef.current, newSettings, samplingCanvas, dm);
+        const dm = effective.depthEnabled ? depthMapRef.current : null;
+        const newFrame = convertToAscii(imageRef.current, effective, samplingCanvas, dm);
         setFrame(newFrame);
       } else if (!hasRealSource.current && logoCanvasRef.current && samplingCanvas) {
         // Re-render logo splash with new settings
-        const newFrame = convertToAscii(logoCanvasRef.current, newSettings, samplingCanvas);
+        const newFrame = convertToAscii(logoCanvasRef.current, effective, samplingCanvas);
         setFrame(newFrame);
       }
     },
