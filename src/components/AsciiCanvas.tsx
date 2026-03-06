@@ -178,7 +178,6 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
         // Motion-detected areas get boosted brightness.
         if (isMatrixRain) {
           // cell.r carries raw brightness (0-255) for matrix/amber modes
-          // (encoded in ascii.ts). For full-color mode fallback to luminance.
           const sourceLum = colorMode === "color"
             ? (0.299 * cell.r + 0.587 * cell.g + 0.114 * cell.b) / 255
             : cell.r / 255;
@@ -188,29 +187,30 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
             ? motionMap.current[y * cols + x]
             : 0;
 
-          // Mild contrast boost — keeps mid-tones visible (not squared)
-          const baseLum = Math.min(1, sourceLum * 1.3);
+          // High-contrast curve: dark areas → black, bright areas → vivid green
+          // Remap with a threshold: below 0.15 fades to black, above scales up
+          const remapped = sourceLum < 0.15
+            ? sourceLum * (sourceLum / 0.15) // smooth fade to zero
+            : Math.min(1, (sourceLum - 0.15) * 1.4 + 0.15);
 
-          // Base green: source silhouette always clearly visible
+          // Base green: selective — only bright-enough areas get characters
           cr = 0;
-          cg = Math.round(baseLum * 220);
-          cb = Math.round(baseLum * 20);
+          cg = Math.round(remapped * 255);
+          cb = Math.round(remapped * 25);
 
           // Motion intensifier: adds brightness and shifts toward white
           if (motionEnergy > 0.05) {
             const mBoost = motionEnergy;
             const whiteness = Math.max(0, (motionEnergy - 0.3) / 0.7);
 
-            cg = Math.min(255, cg + Math.round(mBoost * 120));
+            cg = Math.min(255, cg + Math.round(mBoost * 130));
             cr = Math.min(255, cr + Math.round(whiteness * whiteness * 150));
             cb = Math.min(255, cb + Math.round(whiteness * whiteness * 100));
 
-            // High motion: swap to katakana for visual disruption
             if (motionEnergy > 0.3 && Math.random() < motionEnergy * 0.5) {
               char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
             }
 
-            // Peak motion: near-white flash
             if (motionEnergy > 0.7) {
               const flash = (motionEnergy - 0.7) / 0.3;
               cr = Math.min(255, cr + Math.round(flash * 80));
@@ -219,23 +219,23 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
             }
           }
 
-          // Only suppress truly black areas
-          if (sourceLum < 0.02) {
+          // Suppress dark areas — keeps background clean/black like the splash
+          if (sourceLum < 0.12 && motionEnergy < 0.15) {
             char = " ";
           }
 
-          // Rain overlay
+          // Rain overlay — shows in dark areas too for ambient effect
           const rain = matrixRain.current.getRain(x, y);
           if (rain) {
             char = rain.char;
             if (rain.intensity > 0.9) {
-              cr = 220; cg = 255; cb = 220;
+              cr = 200; cg = 255; cb = 200;
             } else {
               const boost = rain.intensity;
-              const srcBoost = 0.3 + sourceLum * 0.7 + motionEnergy * 0.3;
-              cg = Math.min(255, cg + Math.round(boost * srcBoost * 180));
-              cr = Math.min(80, cr + Math.round(boost * srcBoost * 30));
-              cb = Math.min(80, cb + Math.round(boost * srcBoost * 30));
+              const srcBoost = 0.2 + sourceLum * 0.8 + motionEnergy * 0.3;
+              cg = Math.min(255, Math.max(cg, Math.round(boost * srcBoost * 200)));
+              cr = Math.min(60, cr + Math.round(boost * srcBoost * 20));
+              cb = Math.min(60, cb + Math.round(boost * srcBoost * 20));
             }
           }
         }
