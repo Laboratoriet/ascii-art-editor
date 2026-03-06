@@ -40,6 +40,9 @@ export interface AsciiSettings {
   matrixScale: number;       // 0-1, density of matrix rain columns
   inverted: boolean;
   aspectRatio: AspectRatio;
+  depthEnabled: boolean;
+  depthStrength: number;  // 0-1
+  mirrored: boolean;
 }
 
 export interface DragState {

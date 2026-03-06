@@ -1,5 +1,6 @@
 import { AsciiCell, AsciiFrame, AsciiSettings } from "@/types";
 import { ART_STYLE_CHARS, LETTER_SET_CHARS, COLOR_MODE_TINTS, BAYER_8X8, ASPECT_RATIO_VALUES } from "./constants";
+import { sampleDepthMap } from "./depth-utils";
 
 /**
  * Convert a video/image source to an ASCII frame.
@@ -7,12 +8,14 @@ import { ART_STYLE_CHARS, LETTER_SET_CHARS, COLOR_MODE_TINTS, BAYER_8X8, ASPECT_
 export function convertToAscii(
   source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
   settings: AsciiSettings,
-  samplingCanvas: HTMLCanvasElement
+  samplingCanvas: HTMLCanvasElement,
+  depthMap?: { data: Float32Array; width: number; height: number } | null
 ): AsciiFrame {
   const {
     artStyle, letterSet, ditherAlgorithm, ditherStrength,
     brightness, contrast, colorMode, inverted,
     fontSize, characterSpacing, aspectRatio,
+    depthEnabled, depthStrength, mirrored,
   } = settings;
 
   const chars = letterSet !== "standard"
@@ -63,7 +66,15 @@ export function convertToAscii(
   if (!ctx) return [];
 
   // Draw cropped region into sampling canvas
+  if (mirrored) {
+    ctx.save();
+    ctx.translate(cols, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, cols, rows);
+  if (mirrored) {
+    ctx.restore();
+  }
 
   const imageData = ctx.getImageData(0, 0, cols, rows);
   const pixels = imageData.data;
@@ -76,6 +87,12 @@ export function convertToAscii(
     lum = (lum + brightness - 0.5) * contrast + 0.5;
     lum = Math.max(0, Math.min(1, lum));
     if (inverted) lum = 1 - lum;
+    if (depthEnabled && depthMap) {
+      const x = i % cols;
+      const y = Math.floor(i / cols);
+      const depth = sampleDepthMap(depthMap.data, depthMap.width, depthMap.height, x, y, cols, rows);
+      lum *= 1 - depth * depthStrength;
+    }
     brightnessMap[i] = lum;
   }
 

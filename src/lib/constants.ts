@@ -107,6 +107,9 @@ export const DEFAULT_SETTINGS: AsciiSettings = {
   matrixScale: 0.5,
   inverted: false,
   aspectRatio: "original",
+  depthEnabled: false,
+  depthStrength: 0.7,
+  mirrored: false,
 };
 
 // Matrix characters: half-width katakana + digits + some latin

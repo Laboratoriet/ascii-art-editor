@@ -39,6 +39,11 @@ export interface ControlContentProps {
   // Display zoom
   displayZoom?: number;
   onZoomChange?: (zoom: number) => void;
+  // Depth estimation
+  isDepthLoading?: boolean;
+  depthLoadProgress?: number;
+  depthLoadStatus?: string;
+  isDepthReady?: boolean;
   // Mobile
   isMobile?: boolean;
   // Whether sections should default to collapsed
@@ -51,6 +56,8 @@ export default function ControlContent({
   isWebcamActive, onExport, onRandom,
   devices = [], selectedDeviceId = "", onDeviceSelect,
   displayZoom = 1, onZoomChange,
+  isDepthLoading = false, depthLoadProgress = 0, depthLoadStatus = "",
+  isDepthReady = false,
   isMobile = false, defaultCollapsed = false,
 }: ControlContentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -304,6 +311,16 @@ export default function ControlContent({
               >
                 INV
               </button>
+              <button
+                onClick={() => update({ mirrored: !settings.mirrored })}
+                className={`px-2 py-1.5 rounded text-xs tracking-wider transition-all ${
+                  settings.mirrored
+                    ? "text-amber-400 bg-amber-500/10 border border-amber-500/30"
+                    : "text-zinc-600 border border-zinc-800 hover:text-zinc-400"
+                }`}
+              >
+                MIRROR
+              </button>
             </div>
           </div>
         )}
@@ -311,6 +328,36 @@ export default function ControlContent({
 
       {/* ── EFFECTS ── */}
       <SectionBox label="Effects" collapsible defaultExpanded={!defaultCollapsed}>
+        {/* Depth Estimation */}
+        <SectionLabel>Depth</SectionLabel>
+        <div className="flex items-center gap-2 mb-3">
+          <ChipButton
+            active={settings.depthEnabled}
+            onClick={() => update({ depthEnabled: !settings.depthEnabled })}
+          >
+            {settings.depthEnabled ? "ON" : "OFF"}
+          </ChipButton>
+          {isDepthLoading && (
+            <span className="text-[10px] text-zinc-500">
+              {depthLoadStatus} {depthLoadProgress > 0 && `${depthLoadProgress}%`}
+            </span>
+          )}
+          {isDepthReady && settings.depthEnabled && (
+            <span className="text-[10px] text-emerald-600">Ready</span>
+          )}
+        </div>
+        {settings.depthEnabled && (
+          <div className="mb-3">
+            <SliderField
+              label="Depth Strength"
+              value={settings.depthStrength}
+              min={0} max={1} step={0.05}
+              display={settings.depthStrength.toFixed(2)}
+              onChange={(v) => update({ depthStrength: v })}
+            />
+          </div>
+        )}
+
         {/* Color Mode */}
         <SectionLabel>Color Mode</SectionLabel>
         <div className="grid grid-cols-4 gap-1.5 mb-3">

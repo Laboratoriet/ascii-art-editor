@@ -11,12 +11,17 @@ import { useFps } from "@/hooks/useFps";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMediaDevices } from "@/hooks/useMediaDevices";
 import { useFullscreen } from "@/hooks/useFullscreen";
+import { useDepthEstimation } from "@/hooks/useDepthEstimation";
 import AsciiCanvas from "@/components/AsciiCanvas";
 import ControlPanel from "@/components/ControlPanel";
 import BottomBar from "@/components/BottomBar";
 import MobileDrawer from "@/components/MobileDrawer";
 import DragContainer from "@/components/DragContainer";
-import { Maximize2, Minimize2, Menu } from "lucide-react";
+import SplashCanvas from "@/components/SplashCanvas";
+import {
+  Maximize2, Minimize2, Menu, Camera, CameraOff,
+  Dice5, Upload, Image as ImageIcon,
+} from "lucide-react";
 
 export default function Home() {
   const [settings, setSettings] = useState<AsciiSettings>(DEFAULT_SETTINGS);
@@ -25,8 +30,10 @@ export default function Home() {
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [displayZoom, setDisplayZoom] = useState(1);
+  const [mobileToolbarVisible, setMobileToolbarVisible] = useState(true);
 
   const mainRef = useRef<HTMLDivElement>(null);
+  const mobileFileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -38,6 +45,11 @@ export default function Home() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { devices, selectedDeviceId, selectDevice, enumerate } = useMediaDevices();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  const {
+    depthMapRef, isModelLoading, isModelReady,
+    loadProgress, loadStatus, initModel, estimateDepth, clearDepth,
+  } = useDepthEstimation();
+  const depthFrameCounter = useRef(0);
   const prevZoomRef = useRef(1);
 
   const samplingCanvas = useMemo(() => {
@@ -49,9 +61,18 @@ export default function Home() {
   const startAnimationLoop = useCallback(
     (source: HTMLVideoElement) => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      depthFrameCounter.current = 0;
       const loop = () => {
         if (source.readyState >= 2 && samplingCanvas) {
-          const newFrame = convertToAscii(source, settingsRef.current, samplingCanvas);
+          // Run depth estimation every 5th frame
+          if (settingsRef.current.depthEnabled) {
+            depthFrameCounter.current++;
+            if (depthFrameCounter.current % 5 === 1) {
+              estimateDepth(source);
+            }
+          }
+          const dm = settingsRef.current.depthEnabled ? depthMapRef.current : null;
+          const newFrame = convertToAscii(source, settingsRef.current, samplingCanvas, dm);
           setFrame(newFrame);
           tick();
         }
@@ -59,7 +80,7 @@ export default function Home() {
       };
       rafRef.current = requestAnimationFrame(loop);
     },
-    [samplingCanvas, tick]
+    [samplingCanvas, tick, estimateDepth, depthMapRef]
   );
 
   const stopAnimationLoop = useCallback(() => {
@@ -81,7 +102,11 @@ export default function Home() {
         img.onload = () => {
           imageRef.current = img;
           videoRef.current = null;
-          const newFrame = convertToAscii(img, settingsRef.current, samplingCanvas!);
+          if (settingsRef.current.depthEnabled) {
+            estimateDepth(img);
+          }
+          const dm = settingsRef.current.depthEnabled ? depthMapRef.current : null;
+          const newFrame = convertToAscii(img, settingsRef.current, samplingCanvas!, dm);
           setFrame(newFrame);
         };
         img.src = url;
@@ -175,13 +200,33 @@ export default function Home() {
   // Settings change
   const handleSettingsChange = useCallback(
     (newSettings: AsciiSettings) => {
+      const depthJustEnabled = newSettings.depthEnabled && !settingsRef.current.depthEnabled;
+      const depthJustDisabled = !newSettings.depthEnabled && settingsRef.current.depthEnabled;
+
       setSettings(newSettings);
+
+      // Init model when depth is first enabled
+      if (depthJustEnabled) {
+        initModel();
+      }
+
+      // Clear depth map when disabled
+      if (depthJustDisabled) {
+        clearDepth();
+      }
+
+      // Re-estimate depth for static images when depth is toggled on
+      if (depthJustEnabled && isModelReady && imageRef.current) {
+        estimateDepth(imageRef.current);
+      }
+
       if (imageRef.current && samplingCanvas) {
-        const newFrame = convertToAscii(imageRef.current, newSettings, samplingCanvas);
+        const dm = newSettings.depthEnabled ? depthMapRef.current : null;
+        const newFrame = convertToAscii(imageRef.current, newSettings, samplingCanvas, dm);
         setFrame(newFrame);
       }
     },
-    [samplingCanvas]
+    [samplingCanvas, initModel, clearDepth, isModelReady, estimateDepth, depthMapRef]
   );
 
   // Export
@@ -221,6 +266,22 @@ export default function Home() {
     };
     handleSettingsChange(newSettings);
   }, [handleSettingsChange]);
+
+  // When model becomes ready, estimate depth for current image source
+  useEffect(() => {
+    if (isModelReady && settings.depthEnabled && imageRef.current) {
+      estimateDepth(imageRef.current);
+      // Re-render after a short delay to let depth map arrive
+      const timer = setTimeout(() => {
+        if (imageRef.current && samplingCanvas) {
+          const dm = depthMapRef.current;
+          const newFrame = convertToAscii(imageRef.current, settingsRef.current, samplingCanvas, dm);
+          setFrame(newFrame);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isModelReady, settings.depthEnabled, estimateDepth, samplingCanvas, depthMapRef]);
 
   // Cleanup
   useEffect(() => {
@@ -302,6 +363,10 @@ export default function Home() {
     onDeviceSelect: selectDevice,
     displayZoom,
     onZoomChange: setDisplayZoom,
+    isDepthLoading: isModelLoading,
+    depthLoadProgress: loadProgress,
+    depthLoadStatus: loadStatus,
+    isDepthReady: isModelReady,
   };
 
   return (
@@ -314,13 +379,24 @@ export default function Home() {
               <AsciiCanvas frame={frame} settings={settings} />
             </DragContainer>
           ) : (
-            <div className="w-full h-full flex items-center justify-center empty-state">
+            <SplashCanvas />
+          )}
+
+          {/* Depth model loading overlay */}
+          {isModelLoading && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 pointer-events-none">
               <div className="text-center">
-                <p className="text-xs text-zinc-600 uppercase tracking-[0.15em]">
-                  No Source Loaded
+                <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">
+                  Loading Depth Model
                 </p>
-                <p className="text-[11px] text-zinc-700 mt-2">
-                  Upload an image or video, or start the webcam
+                <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-300"
+                    style={{ width: `${loadProgress}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-600 mt-1.5">
+                  {loadStatus} {loadProgress > 0 && `${loadProgress}%`}
                 </p>
               </div>
             </div>
@@ -336,14 +412,13 @@ export default function Home() {
             </button>
           )}
 
-          {/* Hamburger menu — mobile only */}
-          {isMobile && (
+          {/* Mobile: tap canvas to toggle toolbar */}
+          {isMobile && hasSource && (
             <button
-              onClick={() => setDrawerOpen(true)}
-              className="absolute top-3 right-3 z-10 p-2.5 text-zinc-400 hover:text-zinc-200 bg-black/60 rounded-lg transition-colors"
-            >
-              <Menu size={20} />
-            </button>
+              onClick={() => setMobileToolbarVisible((v) => !v)}
+              className="absolute inset-0 z-[5]"
+              aria-label="Toggle toolbar"
+            />
           )}
         </main>
 
@@ -375,6 +450,93 @@ export default function Home() {
           {...controlProps}
           isMobile
         />
+      )}
+
+      {/* Mobile bottom toolbar */}
+      {isMobile && (
+        <div
+          className={`fixed bottom-0 inset-x-0 z-30 flex items-center justify-around px-2 h-14 bg-black/80 backdrop-blur-sm border-t border-zinc-800/50 transition-transform duration-200 ${
+            mobileToolbarVisible ? "translate-y-0" : "translate-y-full"
+          }`}
+        >
+          {/* Upload */}
+          <button
+            onClick={() => mobileFileRef.current?.click()}
+            className="flex flex-col items-center gap-0.5 p-2 text-zinc-500 active:text-amber-400 transition-colors"
+            aria-label="Upload"
+          >
+            <ImageIcon size={20} />
+            <span className="text-[9px] uppercase tracking-wider">Upload</span>
+          </button>
+
+          {/* Camera toggle */}
+          <button
+            onClick={() => {
+              if (isWebcamActive) {
+                handleWebcamStop();
+              } else {
+                handleSourceChange("webcam");
+                handleWebcamStart(selectedDeviceId || undefined);
+              }
+            }}
+            className={`flex flex-col items-center gap-0.5 p-2 transition-colors ${
+              isWebcamActive ? "text-amber-400" : "text-zinc-500 active:text-amber-400"
+            }`}
+            aria-label={isWebcamActive ? "Stop camera" : "Start camera"}
+          >
+            {isWebcamActive ? <CameraOff size={20} /> : <Camera size={20} />}
+            <span className="text-[9px] uppercase tracking-wider">
+              {isWebcamActive ? "Stop" : "Cam"}
+            </span>
+          </button>
+
+          {/* Randomize */}
+          <button
+            onClick={handleRandom}
+            className="flex flex-col items-center gap-0.5 p-2 text-zinc-500 active:text-amber-400 transition-colors"
+            aria-label="Randomize"
+          >
+            <Dice5 size={20} />
+            <span className="text-[9px] uppercase tracking-wider">Random</span>
+          </button>
+
+          {/* Fullscreen */}
+          <button
+            onClick={handleFullscreenToggle}
+            className={`flex flex-col items-center gap-0.5 p-2 transition-colors ${
+              isFullscreen ? "text-amber-400" : "text-zinc-500 active:text-amber-400"
+            }`}
+            aria-label="Fullscreen"
+          >
+            {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+            <span className="text-[9px] uppercase tracking-wider">
+              {isFullscreen ? "Exit" : "Full"}
+            </span>
+          </button>
+
+          {/* Menu (opens drawer) */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex flex-col items-center gap-0.5 p-2 text-zinc-500 active:text-amber-400 transition-colors"
+            aria-label="Settings"
+          >
+            <Menu size={20} />
+            <span className="text-[9px] uppercase tracking-wider">Menu</span>
+          </button>
+
+          {/* Hidden file input for mobile upload */}
+          <input
+            ref={mobileFileRef}
+            type="file"
+            accept="image/*,video/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileSelect(file);
+              e.target.value = "";
+            }}
+            className="hidden"
+          />
+        </div>
       )}
     </div>
   );

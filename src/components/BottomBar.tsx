@@ -50,12 +50,27 @@ export default function BottomBar({ fps, settings, onChange, hasSource }: Bottom
         >
           INV
         </button>
+        <button
+          onClick={() => onChange({ ...settings, mirrored: !settings.mirrored })}
+          className={`px-2 py-1 rounded transition-all ${
+            settings.mirrored
+              ? "text-amber-400 bg-amber-500/10"
+              : "text-zinc-600 hover:text-zinc-400"
+          }`}
+        >
+          MIRROR
+        </button>
       </div>
 
-      {/* Right: Status */}
-      <div className="text-zinc-600">
-        ASCII DITHER SYSTEM
-      </div>
+      {/* Right: Branding */}
+      <a
+        href="https://www.alkemist.no"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-zinc-600 hover:text-zinc-400 transition-colors"
+      >
+        ASCII DITHER SYSTEM <span className="text-zinc-700">by</span> Alkemist
+      </a>
     </div>
   );
 }
