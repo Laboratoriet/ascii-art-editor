@@ -452,77 +452,81 @@ export default function Home() {
         />
       )}
 
-      {/* Mobile bottom toolbar */}
+      {/* Mobile bottom toolbar — glassmorphic iOS 26 style */}
       {isMobile && (
         <div
-          className={`fixed bottom-0 inset-x-0 z-30 flex items-center justify-around px-2 h-14 bg-black/80 backdrop-blur-sm border-t border-zinc-800/50 transition-transform duration-200 ${
+          className={`fixed bottom-0 inset-x-0 z-30 flex flex-col items-center pb-[env(safe-area-inset-bottom,8px)] pt-3 px-4 transition-transform duration-200 ${
             mobileToolbarVisible ? "translate-y-0" : "translate-y-full"
           }`}
         >
-          {/* Upload */}
-          <button
-            onClick={() => mobileFileRef.current?.click()}
-            className="flex flex-col items-center gap-0.5 p-2 text-zinc-500 active:text-amber-400 transition-colors"
-            aria-label="Upload"
-          >
-            <ImageIcon size={20} />
-            <span className="text-[9px] uppercase tracking-wider">Upload</span>
-          </button>
+          {/* Icon row */}
+          <div className="flex items-center justify-center gap-4">
+            {/* Upload */}
+            <button
+              onClick={() => mobileFileRef.current?.click()}
+              className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-zinc-400 active:text-amber-400 active:bg-white/20 transition-all"
+              aria-label="Upload"
+            >
+              <ImageIcon size={20} />
+            </button>
 
-          {/* Camera toggle */}
-          <button
-            onClick={() => {
-              if (isWebcamActive) {
-                handleWebcamStop();
-              } else {
-                handleSourceChange("webcam");
-                handleWebcamStart(selectedDeviceId || undefined);
-              }
-            }}
-            className={`flex flex-col items-center gap-0.5 p-2 transition-colors ${
-              isWebcamActive ? "text-amber-400" : "text-zinc-500 active:text-amber-400"
-            }`}
-            aria-label={isWebcamActive ? "Stop camera" : "Start camera"}
-          >
-            {isWebcamActive ? <CameraOff size={20} /> : <Camera size={20} />}
-            <span className="text-[9px] uppercase tracking-wider">
-              {isWebcamActive ? "Stop" : "Cam"}
-            </span>
-          </button>
+            {/* Camera toggle */}
+            <button
+              onClick={() => {
+                if (isWebcamActive) {
+                  handleWebcamStop();
+                } else {
+                  handleSourceChange("webcam");
+                  handleWebcamStart(selectedDeviceId || undefined);
+                }
+              }}
+              className={`w-12 h-12 rounded-full backdrop-blur-xl border border-white/10 flex items-center justify-center transition-all ${
+                isWebcamActive
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                  : "bg-white/10 text-zinc-400 active:text-amber-400 active:bg-white/20"
+              }`}
+              aria-label={isWebcamActive ? "Stop camera" : "Start camera"}
+            >
+              {isWebcamActive ? <CameraOff size={20} /> : <Camera size={20} />}
+            </button>
 
-          {/* Randomize */}
-          <button
-            onClick={handleRandom}
-            className="flex flex-col items-center gap-0.5 p-2 text-zinc-500 active:text-amber-400 transition-colors"
-            aria-label="Randomize"
-          >
-            <Dice5 size={20} />
-            <span className="text-[9px] uppercase tracking-wider">Random</span>
-          </button>
+            {/* Randomize */}
+            <button
+              onClick={handleRandom}
+              className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-zinc-400 active:text-amber-400 active:bg-white/20 transition-all"
+              aria-label="Randomize"
+            >
+              <Dice5 size={20} />
+            </button>
 
-          {/* Fullscreen */}
-          <button
-            onClick={handleFullscreenToggle}
-            className={`flex flex-col items-center gap-0.5 p-2 transition-colors ${
-              isFullscreen ? "text-amber-400" : "text-zinc-500 active:text-amber-400"
-            }`}
-            aria-label="Fullscreen"
-          >
-            {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-            <span className="text-[9px] uppercase tracking-wider">
-              {isFullscreen ? "Exit" : "Full"}
-            </span>
-          </button>
+            {/* Export */}
+            <button
+              onClick={handleExport}
+              className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-zinc-400 active:text-amber-400 active:bg-white/20 transition-all"
+              aria-label="Export"
+            >
+              <Upload size={20} />
+            </button>
 
-          {/* Menu (opens drawer) */}
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="flex flex-col items-center gap-0.5 p-2 text-zinc-500 active:text-amber-400 transition-colors"
-            aria-label="Settings"
+            {/* Menu (opens drawer) */}
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-zinc-400 active:text-amber-400 active:bg-white/20 transition-all"
+              aria-label="Settings"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+
+          {/* Branding */}
+          <a
+            href="https://www.alkemist.no"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 text-[9px] uppercase tracking-[0.2em] text-zinc-600 hover:text-zinc-400 transition-colors"
           >
-            <Menu size={20} />
-            <span className="text-[9px] uppercase tracking-wider">Menu</span>
-          </button>
+            ASCII <span className="font-bold text-zinc-500">ALKEMIST</span>
+          </a>
 
           {/* Hidden file input for mobile upload */}
           <input

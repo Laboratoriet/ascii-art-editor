@@ -33,17 +33,20 @@ export default function SplashCanvas() {
     let logoRight = 0;
     let logoChars: string[] = [];
     let frameCount = 0;
+    // CSS pixel dimensions (not DPR-scaled)
+    let cssW = 0;
+    let cssH = 0;
 
     logoImg.onload = () => buildMask();
     logoImg.src = "/logo/alkemist-logo.svg";
 
     function buildMask() {
       if (!logoImg.complete || !canvas || !ctx) return;
+      if (cssW === 0 || cssH === 0) return;
 
-      const cw = canvas.width;
-      const ch = canvas.height;
-      maskW = Math.floor(cw / FONT_SIZE);
-      maskH = Math.floor(ch / FONT_SIZE);
+      // Grid based on CSS pixels, not canvas pixels
+      maskW = Math.floor(cssW / FONT_SIZE);
+      maskH = Math.floor(cssH / FONT_SIZE);
       if (maskW === 0 || maskH === 0) return;
 
       const offscreen = document.createElement("canvas");
@@ -86,6 +89,8 @@ export default function SplashCanvas() {
       if (!canvas) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
+      cssW = rect.width;
+      cssH = rect.height;
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -95,8 +100,7 @@ export default function SplashCanvas() {
     let drops: RainDrop[] = [];
 
     function initDrops() {
-      if (!canvas) return;
-      const cols = Math.floor(canvas.getBoundingClientRect().width / FONT_SIZE);
+      const cols = Math.floor(cssW / FONT_SIZE);
       drops = [];
       for (let i = 0; i < cols; i++) {
         const inLogoZone = i >= logoLeft - 2 && i <= logoRight + 2;
@@ -114,19 +118,16 @@ export default function SplashCanvas() {
 
     function draw() {
       if (!canvas || !ctx) return;
-      const w = canvas.getBoundingClientRect().width;
-      const h = canvas.getBoundingClientRect().height;
-      const rows = Math.floor(h / FONT_SIZE);
+      const rows = Math.floor(cssH / FONT_SIZE);
 
       ctx.fillStyle = "rgba(0, 0, 0, 0.07)";
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(0, 0, cssW, cssH);
 
       ctx.font = `${FONT_SIZE - 2}px "JetBrains Mono", monospace`;
       ctx.textBaseline = "top";
 
       frameCount++;
 
-      // Draw rain
       for (const drop of drops) {
         const col = drop.x;
         const headRow = Math.floor(drop.y);
@@ -162,9 +163,7 @@ export default function SplashCanvas() {
         }
       }
 
-      // Logo glow with flicker + rolling highlight
       if (logoMask) {
-        // Randomize ~25% of logo chars every 4 frames for lively flicker
         if (frameCount % 4 === 0) {
           for (let i = 0; i < maskW * maskH; i++) {
             if (logoMask[i] && Math.random() < 0.25) {
@@ -173,10 +172,8 @@ export default function SplashCanvas() {
           }
         }
 
-        // Rolling highlight: a bright band that sweeps across the logo
-        // Moves slowly left-to-right, wraps around
-        const highlightSpeed = 0.3; // cols per frame
-        const highlightWidth = 6; // how many cols wide the glow band is
+        const highlightSpeed = 0.3;
+        const highlightWidth = 6;
         const highlightCenter = (frameCount * highlightSpeed) % (maskW + 40) - 20;
 
         for (let row = 0; row < maskH; row++) {
@@ -184,15 +181,11 @@ export default function SplashCanvas() {
             const idx = row * maskW + col;
             if (logoMask[idx] !== 1) continue;
 
-            // Distance from rolling highlight center
             const dist = Math.abs(col - highlightCenter);
             const highlightFactor = Math.max(0, 1 - dist / highlightWidth);
-
-            // Base glow + highlight boost
             const baseAlpha = 0.12;
             const alpha = baseAlpha + highlightFactor * 0.5;
 
-            // Highlight band gets whiter
             if (highlightFactor > 0.3) {
               const g = Math.round(255 * (0.7 + highlightFactor * 0.3));
               const rb = Math.round(180 * highlightFactor);
