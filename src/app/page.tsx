@@ -20,7 +20,7 @@ import DragContainer from "@/components/DragContainer";
 import SplashCanvas from "@/components/SplashCanvas";
 import {
   Maximize2, Minimize2, Menu, Camera, CameraOff,
-  Shuffle, Upload, Image as ImageIcon,
+  Shuffle, Upload, Image as ImageIcon, SwitchCamera,
 } from "lucide-react";
 
 export default function Home() {
@@ -478,24 +478,43 @@ export default function Home() {
               <ImageIcon size={20} />
             </button>
 
-            {/* Camera toggle */}
+            {/* Camera: tap = start/switch, long press = stop */}
             <button
               onClick={() => {
-                if (isWebcamActive) {
-                  handleWebcamStop();
-                } else {
+                if (!isWebcamActive) {
                   handleSourceChange("webcam");
                   handleWebcamStart(selectedDeviceId || undefined);
+                } else if (devices.length > 1) {
+                  // Cycle to next camera
+                  const currentIdx = devices.findIndex((d) => d.deviceId === selectedDeviceId);
+                  const nextIdx = (currentIdx + 1) % devices.length;
+                  const nextId = devices[nextIdx].deviceId;
+                  selectDevice(nextId);
+                  handleWebcamStart(nextId);
                 }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (isWebcamActive) handleWebcamStop();
+              }}
+              onTouchStart={(e) => {
+                const timer = setTimeout(() => {
+                  if (isWebcamActive) handleWebcamStop();
+                }, 500);
+                (e.currentTarget as HTMLButtonElement).dataset.longPress = String(timer);
+              }}
+              onTouchEnd={(e) => {
+                const timer = (e.currentTarget as HTMLButtonElement).dataset.longPress;
+                if (timer) clearTimeout(Number(timer));
               }}
               className={`w-12 h-12 rounded-full backdrop-blur-xl border border-white/10 flex items-center justify-center transition-all ${
                 isWebcamActive
                   ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
                   : "bg-white/10 text-zinc-400 active:text-amber-400 active:bg-white/20"
               }`}
-              aria-label={isWebcamActive ? "Stop camera" : "Start camera"}
+              aria-label={isWebcamActive ? "Switch camera (hold to stop)" : "Start camera"}
             >
-              {isWebcamActive ? <CameraOff size={20} /> : <Camera size={20} />}
+              {isWebcamActive ? <SwitchCamera size={20} /> : <Camera size={20} />}
             </button>
 
             {/* Randomize */}
