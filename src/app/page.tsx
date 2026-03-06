@@ -313,7 +313,7 @@ export default function Home() {
 
   // Randomize
   const handleRandom = useCallback(() => {
-    const styles: ArtStyle[] = ["classic", "particles", "letters", "code", "retro", "terminal"];
+    const styles: ArtStyle[] = ["classic", "rain", "letters", "code", "retro", "terminal"];
     const colors: ColorMode[] = ["grayscale", "color", "matrix", "amber"];
     const fonts: FontOption[] = ["jetbrains", "vt323", "firacode", "courier"];
     const fxs: FxPreset[] = ["none", "noise", "glitch", "crt", "beam", "matrix-rain"];

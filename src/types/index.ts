@@ -9,7 +9,7 @@ export type AsciiFrame = AsciiCell[][];
 
 export type SourceType = "image" | "video" | "webcam";
 
-export type ArtStyle = "classic" | "particles" | "letters" | "code" | "retro" | "terminal";
+export type ArtStyle = "classic" | "rain" | "letters" | "code" | "retro" | "terminal";
 
 export type DitherAlgorithm = "none" | "floyd-steinberg" | "bayer";
 

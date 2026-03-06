@@ -6,7 +6,7 @@ import {
 // Character sets per art style
 export const ART_STYLE_CHARS: Record<ArtStyle, string> = {
   classic:   " .:-=+*#%@",
-  particles: " .·:;oO0@",
+  rain: " .·:;oO0@",
   letters:   " .coapAMWB",
   code:      " ._-=+<>{}|",
   retro:     " ░▒▓█",
@@ -24,7 +24,7 @@ export const LETTER_SET_CHARS: Record<LetterSet, string> = {
 
 export const ART_STYLE_LABELS: Record<ArtStyle, string> = {
   classic: "Classic ASCII",
-  particles: "Particles",
+  rain: "Rain",
   letters: "Letters",
   code: "Claude Code",
   retro: "Retro Art",
@@ -124,16 +124,17 @@ export const STYLE_PRESETS: Record<ArtStyle, Partial<AsciiSettings>> = {
     ditherAlgorithm: "floyd-steinberg",
     ditherStrength: 0.8,
   },
-  particles: {
-    letterSet: "standard",
-    colorMode: "color",
-    fxPreset: "noise",
-    fxStrength: 0.4,
-    brightness: 0.2,
-    contrast: 1.6,
-    ditherAlgorithm: "bayer",
-    ditherStrength: 0.5,
-    fontSize: 8,
+  rain: {
+    letterSet: "katakana",
+    colorMode: "matrix",
+    fxPreset: "matrix-rain",
+    fxStrength: 0.5,
+    matrixScale: 0.5,
+    brightness: 0,
+    contrast: 1,
+    ditherAlgorithm: "floyd-steinberg",
+    ditherStrength: 0.8,
+    fontSize: 10,
   },
   letters: {
     letterSet: "mixed",
