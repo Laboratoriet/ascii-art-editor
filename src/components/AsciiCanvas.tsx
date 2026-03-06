@@ -191,39 +191,39 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
           const rain = matrixRain.current.getRain(x, y);
           const rainIntensity = rain ? rain.intensity : 0;
 
-          // Two-layer approach like the splash screen:
-          // 1. Persistent silhouette: bright areas (people) always faintly visible
-          // 2. Rain reveals them fully as it passes through
+          // Person-focused: bright source areas (people) are prominent,
+          // dark areas (background) fade to black with faint rain only.
           //
-          // Silhouette glow: ramps up for bright source areas (people facing camera)
-          // Below 0.2 = black, above 0.2 = gentle ramp to ~0.4 max
-          const silhouette = sourceLum < 0.2
-            ? 0
-            : Math.min(0.4, (sourceLum - 0.2) * 0.6);
+          // Silhouette: strong for bright areas, almost invisible for dark
+          const silhouette = sourceLum < 0.15
+            ? sourceLum * 0.3  // very faint for dark bg
+            : Math.min(0.85, (sourceLum - 0.1) * 1.0);
 
           cr = 0;
-          cg = Math.round(silhouette * 160);
-          cb = Math.round(silhouette * 12);
+          cg = Math.round(silhouette * 220);
+          cb = Math.round(silhouette * 16);
 
-          // Rain reveals the source: bright where rain overlaps bright areas
+          // Rain interaction depends on source brightness:
+          // On bright areas (person): rain makes them pop with full intensity
+          // On dark areas (bg): rain is dim, just faint streaks
           if (rain) {
             char = rain.char;
             if (rainIntensity > 0.9) {
-              // Head of rain — white-green flash, brighter over bright source
-              const headBoost = 0.6 + sourceLum * 0.4;
+              // Head of rain — much brighter on person, dim on bg
+              const headBoost = 0.2 + sourceLum * 0.8;
               cr = Math.round(200 * headBoost);
-              cg = 255;
+              cg = Math.min(255, Math.round(255 * headBoost));
               cb = Math.round(200 * headBoost);
             } else {
-              // Trail — reveals source brightness as green
-              const reveal = rainIntensity * (0.3 + sourceLum * 0.7);
+              // Trail — reveals person brightly, bg only faintly
+              const reveal = rainIntensity * (0.1 + sourceLum * 0.9);
               cg = Math.min(255, Math.round(reveal * 255));
-              cr = Math.min(40, Math.round(reveal * 20));
-              cb = Math.min(40, Math.round(reveal * 20));
+              cr = Math.min(60, Math.round(reveal * 30));
+              cb = Math.min(60, Math.round(reveal * 30));
             }
           }
 
-          // Motion intensifier: moving areas glow brighter even without rain
+          // Motion intensifier: moving areas glow brighter
           if (motionEnergy > 0.05) {
             const mBoost = motionEnergy * sourceLum;
             const whiteness = Math.max(0, (motionEnergy - 0.3) / 0.7);
@@ -244,8 +244,8 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
             }
           }
 
-          // Suppress dark areas unless rain is passing through
-          if (sourceLum < 0.12 && motionEnergy < 0.15 && !rain) {
+          // Suppress dark background areas unless rain is passing through
+          if (sourceLum < 0.1 && motionEnergy < 0.1 && !rain) {
             char = " ";
           }
         }
