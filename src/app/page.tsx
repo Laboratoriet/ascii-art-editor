@@ -41,6 +41,12 @@ export default function Home() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
+  // Logo canvas for splash/demo mode
+  const logoCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hasRealSource = useRef(false);
+  // Show SplashCanvas until user interacts with settings
+  const [splashActive, setSplashActive] = useState(true);
+
   const { fps, tick } = useFps();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { devices, selectedDeviceId, selectDevice, enumerate } = useMediaDevices();
@@ -56,6 +62,36 @@ export default function Home() {
     if (typeof document === "undefined") return null;
     return document.createElement("canvas");
   }, []);
+
+  // Load logo SVG and render to an offscreen canvas for splash/demo mode
+  useEffect(() => {
+    const logoImg = new window.Image();
+    logoImg.onload = () => {
+      // Render logo white-on-black at a reasonable resolution
+      const logoCanvas = document.createElement("canvas");
+      const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+      // Use a width that gives decent ASCII columns (~120-160 cols at default font)
+      const w = 800;
+      const h = Math.round(w / aspect);
+      // Add padding around logo
+      const padX = Math.round(w * 0.15);
+      const padY = Math.round(h * 1.2);
+      logoCanvas.width = w + padX * 2;
+      logoCanvas.height = h + padY * 2;
+      const ctx = logoCanvas.getContext("2d")!;
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, logoCanvas.width, logoCanvas.height);
+      ctx.drawImage(logoImg, padX, padY, w, h);
+      logoCanvasRef.current = logoCanvas;
+
+      // Generate initial splash frame if no real source yet
+      if (!hasRealSource.current && samplingCanvas) {
+        const splashFrame = convertToAscii(logoCanvas, settingsRef.current, samplingCanvas);
+        setFrame(splashFrame);
+      }
+    };
+    logoImg.src = "/logo/alkemist-logo.svg";
+  }, [samplingCanvas]);
 
   // Animation loop for video/webcam
   const startAnimationLoop = useCallback(
@@ -97,10 +133,12 @@ export default function Home() {
 
       if (file.type.startsWith("image/")) {
         setSourceType("image");
+        setSplashActive(false);
         const url = URL.createObjectURL(file);
         const img = new window.Image();
         img.onload = () => {
           imageRef.current = img;
+          hasRealSource.current = true;
           videoRef.current = null;
           if (settingsRef.current.depthEnabled) {
             estimateDepth(img);
@@ -112,7 +150,9 @@ export default function Home() {
         img.src = url;
       } else if (file.type.startsWith("video/")) {
         setSourceType("video");
+        setSplashActive(false);
         imageRef.current = null;
+        hasRealSource.current = true;
         const video = document.createElement("video");
         video.src = URL.createObjectURL(file);
         video.loop = true;
@@ -131,6 +171,7 @@ export default function Home() {
   // Webcam — accepts optional deviceId and resolution
   const handleWebcamStart = useCallback(async (deviceId?: string, hd?: boolean) => {
     try {
+      setSplashActive(false);
       stopAnimationLoop();
       // Stop existing stream
       if (streamRef.current) {
@@ -161,6 +202,7 @@ export default function Home() {
         video.play();
         imageRef.current = null;
         videoRef.current = video;
+        hasRealSource.current = true;
         setIsWebcamActive(true);
         startAnimationLoop(video);
       };
@@ -176,9 +218,16 @@ export default function Home() {
       streamRef.current = null;
     }
     videoRef.current = null;
+    hasRealSource.current = false;
     setIsWebcamActive(false);
-    setFrame([]);
-  }, [stopAnimationLoop]);
+    // Show logo with current settings instead of blank
+    if (logoCanvasRef.current && samplingCanvas) {
+      const logoFrame = convertToAscii(logoCanvasRef.current, settingsRef.current, samplingCanvas);
+      setFrame(logoFrame);
+    } else {
+      setFrame([]);
+    }
+  }, [stopAnimationLoop, samplingCanvas]);
 
   // Source type change
   const handleSourceChange = useCallback(
@@ -190,13 +239,20 @@ export default function Home() {
         stopAnimationLoop();
         setSourceType(newType);
         if (newType !== "webcam") {
-          setFrame([]);
           imageRef.current = null;
           videoRef.current = null;
+          hasRealSource.current = false;
+          // Show logo with current settings
+          if (logoCanvasRef.current && samplingCanvas) {
+            const logoFrame = convertToAscii(logoCanvasRef.current, settingsRef.current, samplingCanvas);
+            setFrame(logoFrame);
+          } else {
+            setFrame([]);
+          }
         }
       }
     },
-    [sourceType, isWebcamActive, handleWebcamStop, stopAnimationLoop]
+    [sourceType, isWebcamActive, handleWebcamStop, stopAnimationLoop, samplingCanvas]
   );
 
   // Settings change
@@ -204,6 +260,9 @@ export default function Home() {
     (newSettings: AsciiSettings) => {
       const depthJustEnabled = newSettings.depthEnabled && !settingsRef.current.depthEnabled;
       const depthJustDisabled = !newSettings.depthEnabled && settingsRef.current.depthEnabled;
+
+      // Dismiss splash on first settings interaction — switch to logo-fed AsciiCanvas
+      setSplashActive(false);
 
       setSettings(newSettings);
 
@@ -225,6 +284,10 @@ export default function Home() {
       if (imageRef.current && samplingCanvas) {
         const dm = newSettings.depthEnabled ? depthMapRef.current : null;
         const newFrame = convertToAscii(imageRef.current, newSettings, samplingCanvas, dm);
+        setFrame(newFrame);
+      } else if (!hasRealSource.current && logoCanvasRef.current && samplingCanvas) {
+        // Re-render logo splash with new settings
+        const newFrame = convertToAscii(logoCanvasRef.current, newSettings, samplingCanvas);
         setFrame(newFrame);
       }
     },
@@ -382,13 +445,13 @@ export default function Home() {
       <div className="flex flex-1 min-h-0">
         {/* Canvas area */}
         <main ref={mainRef} className="flex-1 min-w-0 relative">
-          {hasSource ? (
+          {splashActive && !hasRealSource.current ? (
+            <SplashCanvas />
+          ) : hasSource ? (
             <DragContainer zoom={displayZoom}>
               <AsciiCanvas frame={frame} settings={settings} />
             </DragContainer>
-          ) : (
-            <SplashCanvas />
-          )}
+          ) : null}
 
           {/* Depth model loading overlay */}
           {isModelLoading && (
@@ -421,7 +484,7 @@ export default function Home() {
           )}
 
           {/* Mobile: tap canvas to toggle toolbar */}
-          {isMobile && hasSource && (
+          {isMobile && (
             <button
               onClick={() => setMobileToolbarVisible((v) => !v)}
               className="absolute inset-0 z-[5]"
