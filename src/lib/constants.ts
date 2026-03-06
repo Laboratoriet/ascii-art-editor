@@ -62,8 +62,8 @@ export const DITHER_LABELS: Record<DitherAlgorithm, string> = {
 export const COLOR_MODE_LABELS: Record<ColorMode, string> = {
   grayscale: "Grayscale",
   color: "Full Color",
-  matrix: "Matrix Green",
-  amber: "Amber Monitor",
+  matrix: "Green",
+  amber: "Amber",
 };
 
 export const FX_PRESET_LABELS: Record<FxPreset, string> = {
@@ -126,12 +126,14 @@ export const STYLE_PRESETS: Record<ArtStyle, Partial<AsciiSettings>> = {
   },
   particles: {
     letterSet: "standard",
-    colorMode: "grayscale",
+    colorMode: "color",
     fxPreset: "noise",
-    fxStrength: 0.3,
-    brightness: 0.15,
-    contrast: 1.4,
-    ditherAlgorithm: "none",
+    fxStrength: 0.4,
+    brightness: 0.2,
+    contrast: 1.6,
+    ditherAlgorithm: "bayer",
+    ditherStrength: 0.5,
+    fontSize: 8,
   },
   letters: {
     letterSet: "mixed",

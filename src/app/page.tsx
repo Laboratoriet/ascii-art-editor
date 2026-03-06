@@ -67,15 +67,14 @@ export default function Home() {
   useEffect(() => {
     const logoImg = new window.Image();
     logoImg.onload = () => {
-      // Render logo white-on-black at a reasonable resolution
+      // Render logo white-on-black at a large resolution for clear ASCII
       const logoCanvas = document.createElement("canvas");
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
-      // Use a width that gives decent ASCII columns (~120-160 cols at default font)
-      const w = 800;
+      const w = 1200;
       const h = Math.round(w / aspect);
-      // Add padding around logo
-      const padX = Math.round(w * 0.15);
-      const padY = Math.round(h * 1.2);
+      // Less padding so logo fills more of the canvas
+      const padX = Math.round(w * 0.08);
+      const padY = Math.round(h * 0.6);
       logoCanvas.width = w + padX * 2;
       logoCanvas.height = h + padY * 2;
       const ctx = logoCanvas.getContext("2d")!;

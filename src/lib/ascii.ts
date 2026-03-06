@@ -99,11 +99,6 @@ export function convertToAscii(
   // Apply dithering
   const dithered = applyDithering(brightnessMap, cols, rows, chars.length, ditherAlgorithm, ditherStrength);
 
-  // Build frame — store raw brightness in alpha-like channel via the `b` field trick:
-  // For matrix mode, we need the TRUE source brightness in the renderer.
-  // We encode it into the cell: r=rawBrightness*255 (when matrix), g/b = tinted color.
-  // Actually simpler: just store the raw lum as the cell color, and let the renderer
-  // handle the green tinting. This way the renderer always has the true brightness.
   const tint = COLOR_MODE_TINTS[colorMode];
   const frame: AsciiFrame = [];
 
@@ -122,10 +117,8 @@ export function convertToAscii(
         cg = pixels[pi + 1];
         cb = pixels[pi + 2];
       } else if (tint) {
-        // For matrix/amber: store raw brightness in R channel
-        // so the canvas renderer can extract true source brightness.
-        // G and B carry the tinted color as before.
-        cr = Math.round(lum * 255);  // raw brightness (not tinted)
+        // Tinted modes: proper tinted color
+        cr = Math.round(tint.r * lum);
         cg = Math.round(tint.g * lum);
         cb = Math.round(tint.b * lum);
       } else {

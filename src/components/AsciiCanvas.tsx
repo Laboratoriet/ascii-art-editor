@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import { AsciiFrame, AsciiSettings, FxPreset } from "@/types";
-import { FONT_FAMILIES, MATRIX_CHARS } from "@/lib/constants";
+import { FONT_FAMILIES, MATRIX_CHARS, COLOR_MODE_TINTS } from "@/lib/constants";
 import { MatrixRain } from "@/lib/matrix-rain";
 
 interface AsciiCanvasProps {
@@ -106,7 +106,7 @@ export default function AsciiCanvas({ frame, settings, onMousePos, disableMatrix
           const cell = frame[fy][fx];
           prevBrightness.current[i] = colorMode === "color"
             ? (0.299 * cell.r + 0.587 * cell.g + 0.114 * cell.b) / 255
-            : cell.r / 255;
+            : Math.max(cell.r, cell.g, cell.b) / 255;
         }
       }
 
@@ -119,7 +119,7 @@ export default function AsciiCanvas({ frame, settings, onMousePos, disableMatrix
         const cell = frame[fy][fx];
         const curLum = colorMode === "color"
           ? (0.299 * cell.r + 0.587 * cell.g + 0.114 * cell.b) / 255
-          : cell.r / 255;
+          : Math.max(cell.r, cell.g, cell.b) / 255;
 
         const delta = Math.abs(curLum - prev[i]);
         // Accumulate with temporal decay — motion fades over ~10 frames
@@ -180,10 +180,10 @@ export default function AsciiCanvas({ frame, settings, onMousePos, disableMatrix
         // Rain columns are animated highlights on top.
         // Motion-detected areas get boosted brightness.
         if (isMatrixRain) {
-          // cell.r carries raw brightness (0-255) for matrix/amber modes
+          // Extract source luminance from tinted cell colors
           const sourceLum = colorMode === "color"
             ? (0.299 * cell.r + 0.587 * cell.g + 0.114 * cell.b) / 255
-            : cell.r / 255;
+            : Math.max(cell.r, cell.g, cell.b) / 255;
 
           // Motion energy at this cell (0-1)
           const motionEnergy = motionMap.current
@@ -194,46 +194,72 @@ export default function AsciiCanvas({ frame, settings, onMousePos, disableMatrix
           const rain = matrixRain.current.getRain(x, y);
           const rainIntensity = rain ? rain.intensity : 0;
 
-          // Person-focused: bright source areas (people) are prominent,
-          // dark areas (background) fade to black with faint rain only.
-          //
-          // Silhouette: strong for bright areas, almost invisible for dark
+          // Color-aware rain: use current color mode's tint, or cell color
+          const rainTint = COLOR_MODE_TINTS[colorMode] || { r: 0, g: 255, b: 65 };
+          // Normalize tint to get primary channel ratios (0-1)
+          const tMax = Math.max(rainTint.r, rainTint.g, rainTint.b, 1);
+          const tr = rainTint.r / tMax;
+          const tg = rainTint.g / tMax;
+          const tb = rainTint.b / tMax;
+
+          // For color mode, use the cell's original colors as the rain base
+          const useSourceColor = colorMode === "color" || colorMode === "grayscale";
+
+          // Silhouette: strong for bright areas (person), faint for dark (bg)
           const silhouette = sourceLum < 0.15
-            ? sourceLum * 0.3  // very faint for dark bg
+            ? sourceLum * 0.3
             : Math.min(0.85, (sourceLum - 0.1) * 1.0);
 
-          cr = 0;
-          cg = Math.round(silhouette * 220);
-          cb = Math.round(silhouette * 16);
+          if (useSourceColor) {
+            // Tint the original cell colors down for silhouette
+            cr = Math.round(cell.r * silhouette);
+            cg = Math.round(cell.g * silhouette);
+            cb = Math.round(cell.b * silhouette);
+          } else {
+            cr = Math.round(tr * silhouette * 220);
+            cg = Math.round(tg * silhouette * 220);
+            cb = Math.round(tb * silhouette * 220);
+          }
 
-          // Rain interaction depends on source brightness:
-          // On bright areas (person): rain makes them pop with full intensity
-          // On dark areas (bg): rain is dim, just faint streaks
+          // Rain interaction
           if (rain) {
             char = rain.char;
             if (rainIntensity > 0.9) {
-              // Head of rain — much brighter on person, dim on bg
+              // Head of rain — bright flash
               const headBoost = 0.2 + sourceLum * 0.8;
-              cr = Math.round(200 * headBoost);
-              cg = Math.min(255, Math.round(255 * headBoost));
-              cb = Math.round(200 * headBoost);
+              if (useSourceColor) {
+                const hb = 0.5 + headBoost * 0.5;
+                cr = Math.min(255, Math.round(cell.r * hb + 100 * headBoost));
+                cg = Math.min(255, Math.round(cell.g * hb + 100 * headBoost));
+                cb = Math.min(255, Math.round(cell.b * hb + 100 * headBoost));
+              } else {
+                cr = Math.min(255, Math.round((tr * 200 + 55) * headBoost));
+                cg = Math.min(255, Math.round((tg * 200 + 55) * headBoost));
+                cb = Math.min(255, Math.round((tb * 200 + 55) * headBoost));
+              }
             } else {
-              // Trail — reveals person brightly, bg only faintly
+              // Trail — reveals person brightly, bg faintly
               const reveal = rainIntensity * (0.1 + sourceLum * 0.9);
-              cg = Math.min(255, Math.round(reveal * 255));
-              cr = Math.min(60, Math.round(reveal * 30));
-              cb = Math.min(60, Math.round(reveal * 30));
+              if (useSourceColor) {
+                cr = Math.min(255, Math.round(cell.r * reveal + 20 * reveal));
+                cg = Math.min(255, Math.round(cell.g * reveal + 20 * reveal));
+                cb = Math.min(255, Math.round(cell.b * reveal + 20 * reveal));
+              } else {
+                cr = Math.min(255, Math.round(tr * reveal * 255));
+                cg = Math.min(255, Math.round(tg * reveal * 255));
+                cb = Math.min(255, Math.round(tb * reveal * 255));
+              }
             }
           }
 
-          // Motion intensifier: moving areas glow brighter
+          // Motion intensifier
           if (motionEnergy > 0.05) {
             const mBoost = motionEnergy * sourceLum;
             const whiteness = Math.max(0, (motionEnergy - 0.3) / 0.7);
 
-            cg = Math.min(255, cg + Math.round(mBoost * 200));
-            cr = Math.min(255, cr + Math.round(whiteness * whiteness * 120));
-            cb = Math.min(255, cb + Math.round(whiteness * whiteness * 80));
+            cr = Math.min(255, cr + Math.round(mBoost * 200 * tr + whiteness * whiteness * 120));
+            cg = Math.min(255, cg + Math.round(mBoost * 200 * tg + whiteness * whiteness * 120));
+            cb = Math.min(255, cb + Math.round(mBoost * 200 * tb + whiteness * whiteness * 80));
 
             if (motionEnergy > 0.3 && Math.random() < motionEnergy * 0.5) {
               char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
@@ -242,7 +268,7 @@ export default function AsciiCanvas({ frame, settings, onMousePos, disableMatrix
             if (motionEnergy > 0.7) {
               const flash = (motionEnergy - 0.7) / 0.3;
               cr = Math.min(255, cr + Math.round(flash * 80));
-              cg = 255;
+              cg = Math.min(255, cg + Math.round(flash * 80));
               cb = Math.min(255, cb + Math.round(flash * 60));
             }
           }
