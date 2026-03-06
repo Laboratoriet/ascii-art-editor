@@ -191,13 +191,19 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
           const rain = matrixRain.current.getRain(x, y);
           const rainIntensity = rain ? rain.intensity : 0;
 
-          // Base image is very dim — the rain "reveals" it as it passes
-          // Like the splash: mostly black, rain lights things up
-          const dimBase = sourceLum < 0.15 ? 0 : (sourceLum - 0.15) * 0.35;
+          // Two-layer approach like the splash screen:
+          // 1. Persistent silhouette: bright areas (people) always faintly visible
+          // 2. Rain reveals them fully as it passes through
+          //
+          // Silhouette glow: ramps up for bright source areas (people facing camera)
+          // Below 0.2 = black, above 0.2 = gentle ramp to ~0.4 max
+          const silhouette = sourceLum < 0.2
+            ? 0
+            : Math.min(0.4, (sourceLum - 0.2) * 0.6);
 
           cr = 0;
-          cg = Math.round(dimBase * 180);
-          cb = Math.round(dimBase * 15);
+          cg = Math.round(silhouette * 160);
+          cb = Math.round(silhouette * 12);
 
           // Rain reveals the source: bright where rain overlaps bright areas
           if (rain) {
