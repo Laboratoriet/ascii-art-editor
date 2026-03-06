@@ -257,10 +257,10 @@ export default function Home() {
   // Settings change
   const handleSettingsChange = useCallback(
     (newSettings: AsciiSettings) => {
-      // In logo demo mode: if art style changed, apply curated preset
-      // so each style looks visually distinct
+      // When art style changes, apply curated preset so each style
+      // looks visually distinct (changes letter set, color mode, FX, etc.)
       let effective = newSettings;
-      if (!hasRealSource.current && newSettings.artStyle !== settingsRef.current.artStyle) {
+      if (newSettings.artStyle !== settingsRef.current.artStyle) {
         const preset = STYLE_PRESETS[newSettings.artStyle];
         effective = { ...newSettings, ...preset, artStyle: newSettings.artStyle };
       }
