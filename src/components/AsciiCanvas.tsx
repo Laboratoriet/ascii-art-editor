@@ -187,25 +187,44 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
             ? motionMap.current[y * cols + x]
             : 0;
 
-          // High-contrast curve: dark areas → black, bright areas → vivid green
-          // Remap with a threshold: below 0.15 fades to black, above scales up
-          const remapped = sourceLum < 0.15
-            ? sourceLum * (sourceLum / 0.15) // smooth fade to zero
-            : Math.min(1, (sourceLum - 0.15) * 1.4 + 0.15);
+          // Rain at this cell (null if no rain passing)
+          const rain = matrixRain.current.getRain(x, y);
+          const rainIntensity = rain ? rain.intensity : 0;
 
-          // Base green: selective — only bright-enough areas get characters
+          // Base image is very dim — the rain "reveals" it as it passes
+          // Like the splash: mostly black, rain lights things up
+          const dimBase = sourceLum < 0.15 ? 0 : (sourceLum - 0.15) * 0.35;
+
           cr = 0;
-          cg = Math.round(remapped * 255);
-          cb = Math.round(remapped * 25);
+          cg = Math.round(dimBase * 180);
+          cb = Math.round(dimBase * 15);
 
-          // Motion intensifier: adds brightness and shifts toward white
+          // Rain reveals the source: bright where rain overlaps bright areas
+          if (rain) {
+            char = rain.char;
+            if (rainIntensity > 0.9) {
+              // Head of rain — white-green flash, brighter over bright source
+              const headBoost = 0.6 + sourceLum * 0.4;
+              cr = Math.round(200 * headBoost);
+              cg = 255;
+              cb = Math.round(200 * headBoost);
+            } else {
+              // Trail — reveals source brightness as green
+              const reveal = rainIntensity * (0.3 + sourceLum * 0.7);
+              cg = Math.min(255, Math.round(reveal * 255));
+              cr = Math.min(40, Math.round(reveal * 20));
+              cb = Math.min(40, Math.round(reveal * 20));
+            }
+          }
+
+          // Motion intensifier: moving areas glow brighter even without rain
           if (motionEnergy > 0.05) {
-            const mBoost = motionEnergy;
+            const mBoost = motionEnergy * sourceLum;
             const whiteness = Math.max(0, (motionEnergy - 0.3) / 0.7);
 
-            cg = Math.min(255, cg + Math.round(mBoost * 130));
-            cr = Math.min(255, cr + Math.round(whiteness * whiteness * 150));
-            cb = Math.min(255, cb + Math.round(whiteness * whiteness * 100));
+            cg = Math.min(255, cg + Math.round(mBoost * 200));
+            cr = Math.min(255, cr + Math.round(whiteness * whiteness * 120));
+            cb = Math.min(255, cb + Math.round(whiteness * whiteness * 80));
 
             if (motionEnergy > 0.3 && Math.random() < motionEnergy * 0.5) {
               char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
@@ -219,24 +238,9 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
             }
           }
 
-          // Suppress dark areas — keeps background clean/black like the splash
-          if (sourceLum < 0.12 && motionEnergy < 0.15) {
+          // Suppress dark areas unless rain is passing through
+          if (sourceLum < 0.12 && motionEnergy < 0.15 && !rain) {
             char = " ";
-          }
-
-          // Rain overlay — shows in dark areas too for ambient effect
-          const rain = matrixRain.current.getRain(x, y);
-          if (rain) {
-            char = rain.char;
-            if (rain.intensity > 0.9) {
-              cr = 200; cg = 255; cb = 200;
-            } else {
-              const boost = rain.intensity;
-              const srcBoost = 0.2 + sourceLum * 0.8 + motionEnergy * 0.3;
-              cg = Math.min(255, Math.max(cg, Math.round(boost * srcBoost * 200)));
-              cr = Math.min(60, cr + Math.round(boost * srcBoost * 20));
-              cb = Math.min(60, cb + Math.round(boost * srcBoost * 20));
-            }
           }
         }
 
