@@ -24,7 +24,9 @@ export default function Home() {
   const [frame, setFrame] = useState<AsciiFrame>([]);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [displayZoom, setDisplayZoom] = useState(1);
 
+  const mainRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -36,6 +38,7 @@ export default function Home() {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { devices, selectedDeviceId, selectDevice, enumerate } = useMediaDevices();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  const prevZoomRef = useRef(1);
 
   const samplingCanvas = useMemo(() => {
     if (typeof document === "undefined") return null;
@@ -229,6 +232,31 @@ export default function Home() {
     };
   }, [stopAnimationLoop]);
 
+  // Auto-fit zoom on fullscreen toggle
+  const handleFullscreenToggle = useCallback(() => {
+    if (!isFullscreen) {
+      // Entering fullscreen — save current zoom, compute auto-fit
+      prevZoomRef.current = displayZoom;
+      if (frame.length > 0 && mainRef.current) {
+        const cols = frame[0].length;
+        const rows = frame.length;
+        const charW = settings.fontSize * 0.6;
+        const charH = settings.fontSize * 1.1;
+        const canvasW = cols * charW;
+        const canvasH = rows * charH;
+        // After sidebar closes, main will be roughly window width
+        const availW = window.innerWidth;
+        const availH = window.innerHeight - 36; // minus bottom bar area
+        const fitZoom = Math.min(availW / canvasW, availH / canvasH, 4);
+        setDisplayZoom(Math.round(fitZoom * 10) / 10);
+      }
+    } else {
+      // Exiting fullscreen — restore previous zoom
+      setDisplayZoom(prevZoomRef.current);
+    }
+    toggleFullscreen();
+  }, [isFullscreen, displayZoom, frame, settings.fontSize, toggleFullscreen]);
+
   const hasSource = frame.length > 0;
 
   // Shared props for ControlContent (used by both sidebar and drawer)
@@ -246,15 +274,17 @@ export default function Home() {
     devices,
     selectedDeviceId,
     onDeviceSelect: selectDevice,
+    displayZoom,
+    onZoomChange: setDisplayZoom,
   };
 
   return (
     <div className="h-screen-safe w-screen flex flex-col bg-black overflow-hidden">
       <div className="flex flex-1 min-h-0">
         {/* Canvas area */}
-        <main className="flex-1 min-w-0 relative">
+        <main ref={mainRef} className="flex-1 min-w-0 relative">
           {hasSource ? (
-            <DragContainer>
+            <DragContainer zoom={displayZoom}>
               <AsciiCanvas frame={frame} settings={settings} />
             </DragContainer>
           ) : (
@@ -273,7 +303,7 @@ export default function Home() {
           {/* Fullscreen toggle — desktop only */}
           {!isMobile && (
             <button
-              onClick={toggleFullscreen}
+              onClick={handleFullscreenToggle}
               className="absolute top-3 right-3 z-10 p-2 text-zinc-600 hover:text-zinc-300 bg-black/40 rounded transition-colors"
             >
               {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}

@@ -352,7 +352,7 @@ export default function AsciiCanvas({ frame, settings, onMousePos }: AsciiCanvas
   return (
     <canvas
       ref={canvasRef}
-      className="block w-full h-full object-contain"
+      className="block max-w-full max-h-full"
       style={{ imageRendering: "auto" }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}

@@ -36,6 +36,9 @@ export interface ControlContentProps {
   devices?: MediaDeviceInfo[];
   selectedDeviceId?: string;
   onDeviceSelect?: (deviceId: string) => void;
+  // Display zoom
+  displayZoom?: number;
+  onZoomChange?: (zoom: number) => void;
   // Mobile
   isMobile?: boolean;
   // Whether sections should default to collapsed
@@ -47,6 +50,7 @@ export default function ControlContent({
   onFileSelect, onWebcamStart, onWebcamStop,
   isWebcamActive, onExport, onRandom,
   devices = [], selectedDeviceId = "", onDeviceSelect,
+  displayZoom = 1, onZoomChange,
   isMobile = false, defaultCollapsed = false,
 }: ControlContentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -220,12 +224,19 @@ export default function ControlContent({
       <SectionBox label="Rendering" collapsible defaultExpanded={!defaultCollapsed}>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <SliderField
+            label="Zoom"
+            value={displayZoom}
+            min={0.5} max={4} step={0.1}
+            display={`${displayZoom.toFixed(1)}x`}
+            onChange={(v) => onZoomChange?.(v)}
+            accent
+          />
+          <SliderField
             label="Spacing"
             value={settings.characterSpacing}
             min={0.5} max={2} step={0.05}
             display={`${settings.characterSpacing.toFixed(2)}x`}
             onChange={(v) => update({ characterSpacing: v })}
-            accent
           />
           <SliderField
             label="Hover"
